@@ -1,0 +1,92 @@
+/* Setup game structure */
+var options = {
+  endowments : {
+    'investor': 6,
+    'investee': 3
+  },
+  k: 2,
+  horizon: 2
+}
+var trustCSMG = makeTrustCSMG(options)
+
+/* Setup agents */
+var bobBelief = Infer({method: 'forward', samples: 30}, function() {
+  var alpha = gaussian(100,20)
+  var moneyWeight = beta(2,2)
+  var trustWeight = beta(2,4)
+  return {
+    alpha, moneyWeight, trustWeight
+  }
+})
+// viz(bobBelief)
+var bobParams = {
+ alpha: 100,
+ moneyWeight: 0.7,
+ trustWeight: 0.2,
+ role: 'investor',
+ initialBelief: bobBelief
+}
+var bob = makeAgent(bobParams, trustCSMG)
+
+var aliceBelief = Infer({method: 'forward', samples: 30}, function() {
+  var alpha = gaussian(20,4)
+  var moneyWeight = beta(2,2)
+  var trustWeight = beta(2,2)
+  return {
+    alpha, moneyWeight, trustWeight
+  }
+})
+
+// viz(aliceBelief)
+
+var aliceParams = {
+ alpha: 100,
+ moneyWeight: 1,
+ trustWeight: 0,
+ role: 'investee',
+ initialBelief: aliceBelief
+}
+var alice = makeAgent(aliceParams, trustCSMG)
+
+var players = {
+  investor: bob,
+  investee: alice
+}
+
+/* Simulate execution */
+var simulate = function(game, players, state) {
+  var trajectory = function(state, beliefs, timeLeft)  {
+    if (timeLeft > 0) {
+      var actingPlayer = players[state.turn]
+      display("New iteration. Time left: " + timeLeft + ", " + actingPlayer + " to act")
+      var act = actingPlayer.act
+      var start = _.now()
+      var action = sample(act(state, timeLeft, beliefs[state.turn]))
+      var end = _.now()
+      display("Action computed: " + action + ". Took " + (end - start) + " (msec?)")
+      var transition = game.transition
+      var nextState = transition(state, action)
+      var investorUpdateBelief = players.investor.updateBelief
+      var investeeUpdateBelief = players.investee.updateBelief
+      var start = _.now()
+      var nextBeliefs = {
+        investor: investorUpdateBelief(beliefs.investor, state, action, timeLeft),
+        investee: investeeUpdateBelief(beliefs.investee, state, action, timeLeft)
+      }
+      var end = _.now()
+      display("Beliefs updated. Took " + (end - start) + " (msec?).")
+      return [[state, action]].concat(trajectory(nextState, nextBeliefs, timeLeft - 1))
+    }
+    return []
+  }
+  var startingState = (state === undefined) ? game.initialState : state
+  var beliefs = {
+    investor: players.investor.params.initialBelief,
+    investee: players.investee.params.initialBelief
+  }
+  return trajectory(startingState, beliefs, game.params.horizon)
+}
+
+var trajectory = simulate(trustCSMG, players)
+
+display(trajectory)
