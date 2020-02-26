@@ -1,19 +1,27 @@
 /* Setup game structure */
 var options = {
   endowments : {
-    'investor': 6,
-    'investee': 3
+    'investor': 2,
+    'investee': 0
   },
   k: 2,
-  horizon: 2
+  horizon: 6
 }
 var trustCSMG = makeTrustCSMG(options)
 
+
 /* Setup agents */
-var bobBelief = Infer({method: 'forward', samples: 30}, function() {
-  var alpha = gaussian(100,20)
-  var moneyWeight = beta(2,2)
-  var trustWeight = beta(2,4)
+var trustBeliefs = {
+  investor: Delta({v:0.8}),
+  investee: Delta({v:0.8})
+}
+
+var bobBelief = Infer({method: 'forward', samples: 50}, function() {
+  var alpha = gaussian(100,5)
+  var moneyWeight = beta(1,10)
+  // var moneyWeight = uniform(0,1)
+  var trustWeight = beta(10,1)
+  // var trustWeight = uniform(0,1)
   return {
     alpha, moneyWeight, trustWeight
   }
@@ -21,17 +29,18 @@ var bobBelief = Infer({method: 'forward', samples: 30}, function() {
 // viz(bobBelief)
 var bobParams = {
  alpha: 100,
- moneyWeight: 0.7,
- trustWeight: 0.2,
- role: 'investor',
- initialBelief: bobBelief
+ moneyWeight: 0.1,
+ trustWeight: 1
+ // ,initialBelief: bobBelief
 }
-var bob = makeAgent(bobParams, trustCSMG)
+var bob = makeAgent(bobParams, 'investee', trustBeliefs, trustCSMG)
 
-var aliceBelief = Infer({method: 'forward', samples: 30}, function() {
-  var alpha = gaussian(20,4)
-  var moneyWeight = beta(2,2)
-  var trustWeight = beta(2,2)
+var aliceBelief = Infer({method: 'forward', samples: 50}, function() {
+  var alpha = gaussian(100,5)
+  var moneyWeight = beta(1,10)
+  // var moneyWeight = uniform(0,1)
+  var trustWeight = beta(10,1)
+  // var trustWeight = uniform(0,1)
   return {
     alpha, moneyWeight, trustWeight
   }
@@ -41,27 +50,36 @@ var aliceBelief = Infer({method: 'forward', samples: 30}, function() {
 
 var aliceParams = {
  alpha: 100,
- moneyWeight: 1,
- trustWeight: 0,
- role: 'investee',
- initialBelief: aliceBelief
+ moneyWeight: 0.1,
+ trustWeight: 1
+ // ,initialBelief: aliceBelief
 }
-var alice = makeAgent(aliceParams, trustCSMG)
+var alice = makeAgent(aliceParams, 'investor', trustBeliefs, trustCSMG)
 
 var players = {
-  investor: bob,
-  investee: alice
+  investor: alice,
+  investee: bob
+}
+
+var beliefs = {
+  investor: aliceBelief,
+  investee: bobBelief
+}
+
+var names = {
+  investor: 'Alice',
+  investee: 'Bob'
 }
 
 /* Simulate execution */
-var simulate = function(game, players, state) {
+var simulate = function(game, players, beliefs, state) {
   var trajectory = function(state, beliefs, timeLeft)  {
     if (timeLeft > 0) {
       var actingPlayer = players[state.turn]
-      display("New iteration. Time left: " + timeLeft + ", " + actingPlayer + " to act")
+      display("New iteration. Time left: " + timeLeft + ", " + names[state.turn] + " to act")
       var act = actingPlayer.act
       var start = _.now()
-      var action = sample(act(state, timeLeft, beliefs[state.turn]))
+      var action = sample(act(state, timeLeft, beliefs[state.turn], undefined, true))
       var end = _.now()
       display("Action computed: " + action + ". Took " + (end - start) + " (msec?)")
       var transition = game.transition
@@ -75,18 +93,27 @@ var simulate = function(game, players, state) {
       }
       var end = _.now()
       display("Beliefs updated. Took " + (end - start) + " (msec?).")
+      if (timeLeft == 1) {
+        display("final trust")
+        display("Alice: " + trustExp(nextBeliefs.investor))
+        display("Bob: " + trustExp(nextBeliefs.investee))
+      }
       return [[state, action]].concat(trajectory(nextState, nextBeliefs, timeLeft - 1))
     }
     return []
   }
   var startingState = (state === undefined) ? game.initialState : state
-  var beliefs = {
-    investor: players.investor.params.initialBelief,
-    investee: players.investee.params.initialBelief
-  }
+  // var beliefs = {
+  //   investor: players.investor.params.initialBelief,
+  //   investee: players.investee.params.initialBelief
+  // }
   return trajectory(startingState, beliefs, game.params.horizon)
 }
 
-var trajectory = simulate(trustCSMG, players)
+display("Initial trusts")
+display("Alice: " + trustExp(aliceBelief))
+display("Bob: " + trustExp(bobBelief))
+var trajectory = simulate(trustCSMG, players, beliefs)
+display()
 
 display(trajectory)

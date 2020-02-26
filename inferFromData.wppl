@@ -1,0 +1,231 @@
+/* Auxiliary */
+var parseInt = function(string) {_.parseInt(string)}
+
+/* Process input data */
+var filename = argv.data
+if (filename === undefined) {
+    error("Please specify a file name using --data <filename> command line")
+}
+
+var lines = fs.read(filename).split('\n')
+/* First line contains player names and identifiers
+   Second line contains parameters of the experiment (endowments, k, horizon)
+   Third line onwards contains experimental data */
+
+/*  Process first line. 
+    Expected input format: eg "(1,bob);(2,alice);...;(5,celine)" 
+            (ideally, player ids start from 0 and increment by 1)
+    Transform into array: [[1, 'bob'],[2,'alice'],...,[5,'celine']] 
+*/
+var processPlayersLine = function(line) {
+    var playerStringToArray = function(string) { 
+        var array = string.slice(1,-1).split(',')
+        return [parseInt(array[0]), array[1]]
+    }
+    return sort(map(playerStringToArray, line.split(';')))
+}
+var playersArray = processPlayersLine(lines[0])
+display(playersArray)
+
+/* Process second line
+   Expected input format: eg "10,5,2,10" (er,ei,k,horizon)
+   Tranform into object: 
+     { endowments : { investor : 10, investee: 5}, 
+       k: 2, 
+       horizon: 10}
+*/
+var processParamsLine = function(line) {
+    var paramsArray = map(parseInt, line.split(','))
+    return {
+      endowments : {
+        investor: paramsArray[0],
+        investee: paramsArray[1]
+      },
+      k: paramsArray[2],
+      horizon: paramsArray[3]
+    }
+}
+var params = processParamsLine(lines[1])
+display(params)
+
+/* Finally process experimental data (lines 3 onwards)
+   Each line expected format: <id1>,<id2>,<roundNo>,<investment>,<return>
+   Transform into array of arrays grouped by pairs of players eg
+   [[[1,2,1,5,4],...,[1,2,8,0,0]],[1,3,1,7,8],...,[1,3,8,4,6],...]
+*/
+var processDataLines = function(lines) {
+    var dataLineToArray = function(line) { 
+        return map(parseInt, line.split(',')) 
+    }
+    var samePlayerPair = function(arr1, arr2) {
+        return arr1[0] == arr2[0] && arr1[1] == arr2[1]
+    }
+    return groupBy(samePlayerPair, map(dataLineToArray, lines))
+}
+var data = processDataLines(lines.splice(2,lines.length-2))
+display(data)
+
+// var iterationsString = lines.splice(2,lines.length-2)
+// display(iterationsString)
+// var splitLineOnCommas = function(line) {line.split(',')}
+
+// var parseStringsToInts = function(strings) {map(parseInt, strings)}
+// var iterations = map(parseStringsToInts, map(splitLineOnCommas, iterationsString))
+
+// var paramsArray = map(parseInt, optionsString.split(','))
+// display(paramsArray)
+// var params = {
+//   endowments : {
+//     'investor': paramsArray[0],
+//     'investee': paramsArray[1]
+//   },
+//   k: paramsArray[2],
+//   horizon: paramsArray[3]
+// }
+
+
+// display(playersString)
+// display(map(removeFirstAndLast, playersString.split(';')))
+// var playersArray = map(function(s) {return s.split(',')}, map(removeFirstAndLast, playersString.split(';')))
+// display(playersArray)
+// var sortedPlayersArray = sort(playersArray, lt, function(x) {_.parseInt(x[0])})
+
+/* 
+Now set up the main players array which will hold all their parameters and beliefs
+The idea is to store it in a (part-empty) array where data corresponding to player
+with id <id> is stored in the array position indexed by <id>. Since we don't enforce
+player ids to start from 0 and increment by 1, resulting array might have 'holes'.
+Each entry of this array is (either undefined or) an object representing an agent 
+(player), in particular its name, our current belief about its parameters and our 
+current belief about its belief about other agents' parameters. The beliefs are stored
+in an array that is again indexed by player ids and might have 'holes'.
+The object has the following format:
+{ 
+name: 'bob',
+params: <distribution over {alpha, moneyWeight, trustWeight}>,
+beliefs: <array of (distributions over params/undefined)>
+}
+*/
+// Input format: [[1, 'bob'],[2,'alice'],...,[5,'celine']]
+var constructPlayersDataStructure = function(playersArray) {
+    var paramsPrior = Infer({method: 'forward'}, function() {
+        var alpha = gamma(25,0.25)
+        var moneyWeight = uniform(0,1)
+        var trustWeight = uniform(0,1)
+        return {alpha, moneyWeight, trustWeight}
+    })
+    var constructBeliefArray = function(playersArray, playerID) {
+        var initialBelief = Infer({method: 'forward', samples: 30}, function() {
+          var alpha = gaussian(20,4)
+          var moneyWeight = beta(2,2)
+          var trustWeight = beta(2,2)
+          return { alpha, moneyWeight, trustWeight }
+        })
+        var constructBeliefArrayHelper = function(playersArray, playerID, iteration, index) {
+            if (index > playersArray.length - 1) {
+                return []
+            }
+            var nextPlayerID = playersArray[index][0]
+            if (iteration == nextPlayerID && iteration != playerID) {
+                return [initialBelief].concat(
+                    constructBeliefArrayHelper(playersArray, playerID, iteration+1, index+1))
+            }
+            var nextIndex = (iteration == playerID) ? index+1 : index
+            return [undefined].concat(
+                constructBeliefArrayHelper(playersArray, playerID, iteration+1, nextIndex))
+        }
+        return constructBeliefArrayHelper(playersArray, playerID, 0, 0)
+    }
+
+    var constructPlayersHelper = function(array, iteration, index) {
+        if (index > array.length - 1) {
+            return []
+        }
+        var nextPlayerID = array[index][0]
+        if (iteration == nextPlayerID) {
+            var player = {
+                name: array[index][1], 
+                params: paramsPrior, 
+                beliefs: constructBeliefArray(array, nextPlayerID)
+            }
+            return [player].concat(constructPlayersHelper(array, iteration+1, index+1))
+        }
+        return [undefined].concat(constructPlayersHelper(array, iteration+1, index))
+    }
+    return constructPlayersHelper(playersArray, 0, 0)
+}
+var players = constructPlayersDataStructure(playersArray)
+display(players)
+
+// 
+
+// var beliefsArray = repeat(_.parseInt(playersArray[playersArray.length-1][0]), function() {return initialBelief})
+
+// var paramsPrior = function(role) {
+//     var alpha = gamma(25,0.25)
+//     var moneyWeight = uniform(0,1)
+//     var trustWeight = uniform(0,1)
+//     return {alpha, moneyWeight, trustWeight, role}
+// }
+// var makeProperPlayersArray = function(array, it, index) {
+//     if (index > array.length - 1) {
+//         return []
+//     }
+//     var nextEntry = _.parseInt(array[index][0])
+//     if (it == _.parseInt(array[index][0])) {
+//         var player = {name: array[index][1], params: paramsPrior, beliefs: beliefsArray}
+//         return [player].concat(makeProperPlayersArray(array, it+1, index+1))
+//     }
+//     return [undefined].concat(makeProperPlayersArray(array, it+1, index))
+// }
+// var properPlayersArray = makeProperPlayersArray(sortedPlayersArray, 0, 0)
+
+// display(properPlayersArray)
+
+var csmg = makeTrustCSMG(params)
+
+/* compute posterior belief about 'players', given 'data'
+- 'players' is our big array of objects representing players (name, params, beliefs)
+- 'data' is an array of array, each inner array representing one play of trust game 
+    between two players, e.g. [[[1,2,0,10,16], [1,2,1,10,6]], [[2,1,0,4,4], [2,1,1,1,1]]]
+*/ 
+var posterior = function(players, data) {
+    var posteriorHelper = function(players, data, index) {
+        if (index >= data.length) {
+            return players
+        }
+        var playersUpdated = update(players, data[index])
+        return posteriorHelper(playersUpdated, data, index+1)
+    }
+    return 
+
+    var update = function(players, iteration) {
+        var investorID = iteration[0]
+        var investeeID = iteration[1]
+        var investedAmount = iteration[3]
+        var returnedAmount = iteration[4]
+        // two transfers:
+        // 1. investor -> investedAmount -> investee
+        // 2. investee -> returnedAmount -> investor
+        // 1 updates our belief of investor's params and belief and also 
+        //   our belief of investee's belief of investor's params
+        // 2 updates out belief of investee's params and belief and also
+        //   our belief of investor's belief of investee's params
+        var investorParamsBelief = Infer({model() {
+            var params = sample(players[investorID].params)
+            var belief = sample(players[investorID].belief[investeeID])
+            var investor = makeAgent(params, 'investor', csmg)
+            // var action = act(state, timeleft, belief, )
+            // condition(action == investedAmount)
+            return params
+        }})
+    }
+    var posteriorHelper = function(ps, its, idx) {
+        if (its.length <= idx) {
+            var updatedPlayers = update(ps, its[idx])
+            return posteriorHelper(updatedPlayers, its, idx + 1)
+        }
+        return ps
+    }
+    return posterior(players, iterations, 0)
+}
