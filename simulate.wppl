@@ -1,8 +1,8 @@
 /* Setup game structure */
 var options = {
   endowments : {
-    'investor': 2,
-    'investee': 0
+    'investor': 6,
+    'investee': 3
   },
   k: 2,
   horizon: 6
@@ -19,30 +19,31 @@ var trustBeliefs = {
 var bobBelief = Infer({method: 'forward', samples: 50}, function() {
   var alpha = gaussian(100,5)
   var moneyWeight = beta(1,10)
-  // var moneyWeight = uniform(0,1)
   var trustWeight = beta(10,1)
-  // var trustWeight = uniform(0,1)
+  var discountFactor = 0.9
+  var lookAhead = 2
   return {
-    alpha, moneyWeight, trustWeight
+    alpha, moneyWeight, trustWeight, discountFactor, lookAhead
   }
 })
 // viz(bobBelief)
 var bobParams = {
  alpha: 100,
  moneyWeight: 0.1,
- trustWeight: 1
- // ,initialBelief: bobBelief
+ trustWeight: 1,
+ discountFactor: 0.9,
+ lookAhead: 2
 }
-var bob = makeAgent(bobParams, 'investee', trustBeliefs, trustCSMG)
+var bob = makeAgent(bobParams, 'investee', trustBeliefs, bobBelief, trustCSMG)
 
 var aliceBelief = Infer({method: 'forward', samples: 50}, function() {
   var alpha = gaussian(100,5)
   var moneyWeight = beta(1,10)
-  // var moneyWeight = uniform(0,1)
   var trustWeight = beta(10,1)
-  // var trustWeight = uniform(0,1)
+  var discountFactor = 0.9
+  var lookAhead = 2
   return {
-    alpha, moneyWeight, trustWeight
+    alpha, moneyWeight, trustWeight, discountFactor, lookAhead
   }
 })
 
@@ -51,10 +52,11 @@ var aliceBelief = Infer({method: 'forward', samples: 50}, function() {
 var aliceParams = {
  alpha: 100,
  moneyWeight: 0.1,
- trustWeight: 1
- // ,initialBelief: aliceBelief
+ trustWeight: 1,
+ discountFactor: 0.9,
+ lookAhead: 2
 }
-var alice = makeAgent(aliceParams, 'investor', trustBeliefs, trustCSMG)
+var alice = makeAgent(aliceParams, 'investor', trustBeliefs, aliceBelief, trustCSMG)
 
 var players = {
   investor: alice,
@@ -72,48 +74,36 @@ var names = {
 }
 
 /* Simulate execution */
-var simulate = function(game, players, beliefs, state) {
-  var trajectory = function(state, beliefs, timeLeft)  {
+var simulate = function(game, players, state) {
+  var trajectory = function(state, timeLeft)  {
     if (timeLeft > 0) {
       var actingPlayer = players[state.turn]
       display("New iteration. Time left: " + timeLeft + ", " + names[state.turn] + " to act")
       var act = actingPlayer.act
       var start = _.now()
-      var action = sample(act(state, timeLeft, beliefs[state.turn], undefined, true))
+      var action = sample(act(state))
       var end = _.now()
-      display("Action computed: " + action + ". Took " + (end - start) + " (msec?)")
+      display("Action computed: " + action + ". Took " + (end - start) + " msec")
       var transition = game.transition
       var nextState = transition(state, action)
-      var investorUpdateBelief = players.investor.updateBelief
-      var investeeUpdateBelief = players.investee.updateBelief
-      var start = _.now()
-      var nextBeliefs = {
-        investor: investorUpdateBelief(beliefs.investor, state, action, timeLeft),
-        investee: investeeUpdateBelief(beliefs.investee, state, action, timeLeft)
-      }
-      var end = _.now()
-      display("Beliefs updated. Took " + (end - start) + " (msec?).")
       if (timeLeft == 1) {
+        var aliceBelief = players['investor'].belief
+        var bobBelief = players['investee'].belief
         display("final trust")
-        display("Alice: " + trustExp(nextBeliefs.investor))
-        display("Bob: " + trustExp(nextBeliefs.investee))
+        display("Alice: " + trustExp(aliceBelief(nextState)))
+        display("Bob: " + trustExp(bobBelief(nextState)))
       }
-      return [[state, action]].concat(trajectory(nextState, nextBeliefs, timeLeft - 1))
+      return [[state, action]].concat(trajectory(nextState, timeLeft - 1))
     }
     return []
   }
   var startingState = (state === undefined) ? game.initialState : state
-  // var beliefs = {
-  //   investor: players.investor.params.initialBelief,
-  //   investee: players.investee.params.initialBelief
-  // }
-  return trajectory(startingState, beliefs, game.params.horizon)
+  return trajectory(startingState, game.params.horizon)
 }
 
 display("Initial trusts")
 display("Alice: " + trustExp(aliceBelief))
 display("Bob: " + trustExp(bobBelief))
-var trajectory = simulate(trustCSMG, players, beliefs)
-display()
+var trajectory = simulate(trustCSMG, players)
 
 display(trajectory)

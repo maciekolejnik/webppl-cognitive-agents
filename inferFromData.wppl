@@ -1,6 +1,24 @@
 /* Auxiliary */
 var parseInt = function(string) {_.parseInt(string)}
 
+var replace = function(array, index, newElem) {
+  var f = function(acc, elem) {
+    if (acc.length == index) {
+      return acc.concat([newElem])
+    } else {
+      return acc.concat([elem])
+    }
+  }
+  return reduceL(f, [], array)
+}
+
+var reduceL = function(f, acc, arr) {
+  if (arr.length == 0) {
+    return acc
+  }
+  return reduceL(f, f(acc, arr[0]), arr.slice(1))
+}
+
 /* Process input data */
 var filename = argv.data
 if (filename === undefined) {
@@ -64,31 +82,6 @@ var processDataLines = function(lines) {
 }
 var data = processDataLines(lines.splice(2,lines.length-2))
 display(data)
-
-// var iterationsString = lines.splice(2,lines.length-2)
-// display(iterationsString)
-// var splitLineOnCommas = function(line) {line.split(',')}
-
-// var parseStringsToInts = function(strings) {map(parseInt, strings)}
-// var iterations = map(parseStringsToInts, map(splitLineOnCommas, iterationsString))
-
-// var paramsArray = map(parseInt, optionsString.split(','))
-// display(paramsArray)
-// var params = {
-//   endowments : {
-//     'investor': paramsArray[0],
-//     'investee': paramsArray[1]
-//   },
-//   k: paramsArray[2],
-//   horizon: paramsArray[3]
-// }
-
-
-// display(playersString)
-// display(map(removeFirstAndLast, playersString.split(';')))
-// var playersArray = map(function(s) {return s.split(',')}, map(removeFirstAndLast, playersString.split(';')))
-// display(playersArray)
-// var sortedPlayersArray = sort(playersArray, lt, function(x) {_.parseInt(x[0])})
 
 /* 
 Now set up the main players array which will hold all their parameters and beliefs
@@ -157,32 +150,9 @@ var constructPlayersDataStructure = function(playersArray) {
 var players = constructPlayersDataStructure(playersArray)
 display(players)
 
-// 
-
-// var beliefsArray = repeat(_.parseInt(playersArray[playersArray.length-1][0]), function() {return initialBelief})
-
-// var paramsPrior = function(role) {
-//     var alpha = gamma(25,0.25)
-//     var moneyWeight = uniform(0,1)
-//     var trustWeight = uniform(0,1)
-//     return {alpha, moneyWeight, trustWeight, role}
-// }
-// var makeProperPlayersArray = function(array, it, index) {
-//     if (index > array.length - 1) {
-//         return []
-//     }
-//     var nextEntry = _.parseInt(array[index][0])
-//     if (it == _.parseInt(array[index][0])) {
-//         var player = {name: array[index][1], params: paramsPrior, beliefs: beliefsArray}
-//         return [player].concat(makeProperPlayersArray(array, it+1, index+1))
-//     }
-//     return [undefined].concat(makeProperPlayersArray(array, it+1, index))
-// }
-// var properPlayersArray = makeProperPlayersArray(sortedPlayersArray, 0, 0)
-
-// display(properPlayersArray)
 
 var csmg = makeTrustCSMG(params)
+var transition = csmg.transition
 
 /* compute posterior belief about 'players', given 'data'
 - 'players' is our big array of objects representing players (name, params, beliefs)
@@ -190,42 +160,64 @@ var csmg = makeTrustCSMG(params)
     between two players, e.g. [[[1,2,0,10,16], [1,2,1,10,6]], [[2,1,0,4,4], [2,1,1,1,1]]]
 */ 
 var posterior = function(players, data) {
-    var posteriorHelper = function(players, data, index) {
-        if (index >= data.length) {
-            return players
-        }
-        var playersUpdated = update(players, data[index])
-        return posteriorHelper(playersUpdated, data, index+1)
-    }
-    return 
 
-    var update = function(players, iteration) {
-        var investorID = iteration[0]
-        var investeeID = iteration[1]
-        var investedAmount = iteration[3]
-        var returnedAmount = iteration[4]
-        // two transfers:
-        // 1. investor -> investedAmount -> investee
-        // 2. investee -> returnedAmount -> investor
-        // 1 updates our belief of investor's params and belief and also 
-        //   our belief of investee's belief of investor's params
-        // 2 updates out belief of investee's params and belief and also
-        //   our belief of investor's belief of investee's params
-        var investorParamsBelief = Infer({model() {
-            var params = sample(players[investorID].params)
-            var belief = sample(players[investorID].belief[investeeID])
-            var investor = makeAgent(params, 'investor', csmg)
-            // var action = act(state, timeleft, belief, )
-            // condition(action == investedAmount)
-            return params
-        }})
+    var processRound = function(priorAndState, round) {
+      var investorID = round[0]
+      var investeeID = round[1]
+      var investedAmount = round[3]
+      var returnedAmount = round[4]
+
+      var prior = priorAndState[0]
+      var state = priorAndState[1]
+      // two transfers:
+      // 1.investor -> investedAmount -> investee
+      // 2.investee -> returnedAmount -> investor
+      // 1 updates our belief of investor's params and belief and also 
+      //   our belief of investee's belief of investor's params
+      // 2 updates out belief of investee's params and belief and also
+      //   our belief of investor's belief of investee's params
+      var investorPosterior = Infer({model() {
+        var params = sample(prior.investor.params)
+        var belief = sample(prior.investor.beliefs)
+        var investor = makeAgent(params, 'investor', trustbelief, belief, csmg)
+        var action = act(csmg.initialState)
+        condition(action == investedAmount)
+        return {params, belief}
+      }})
+      var nextState = transition(initialState, investedAmount)
+      var investeePosterior = Infer({model() {
+        var params = sample(prior.investee.params)
+        var belief = sample(prior.investee.beliefs)
+        var investee = makeAgent(params, 'investee', trustbelief, belief, csmg)
+        var action = act(nextState)
+        condition(action == returnedAmount)
+        return {params, belief}
+      }})
+      return {
+        investor: investorPosterior,
+        investee: investeePosterior
+      }
     }
-    var posteriorHelper = function(ps, its, idx) {
-        if (its.length <= idx) {
-            var updatedPlayers = update(ps, its[idx])
-            return posteriorHelper(updatedPlayers, its, idx + 1)
-        }
-        return ps
+
+    var processOnePlay = function(players, rounds) {
+      if (rounds.length == 0) {
+        return players
+      }
+      var investorID = rounds[0][0]
+      var investeeID = rounds[0][1]
+      var prior = {
+        investor: players[investorID],
+        investee: players[investeeID]
+      }
+      var posterior = reduceL(processRound, [prior, game.initialState], rounds)
+      return replace(replace(players, investorID, posterior.investor), investeeID, posterior.investee)
     }
-    return posterior(players, iterations, 0)
+    // return posterior(players, iterations, 0)
+
+    return reduceL(processOnePlay, players, data)
 }
+
+// test replace
+var arr = [1,2,3,4,5]
+display(replace(arr, 0, 0))
+display(replace(arr, 1, 1))
