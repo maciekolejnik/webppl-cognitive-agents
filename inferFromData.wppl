@@ -1,8 +1,15 @@
 /* Auxiliary */
-var parseInt = function(string) {_.parseInt(string)}
+let parseInt = function(string) {_.parseInt(string)}
 
-var replace = function(array, index, newElem) {
-  var f = function(acc, elem) {
+let extractElementAtIndex = function(index) {
+  let extract = function(array) {
+    return array[index]
+  }
+  return extract
+}
+
+let replace = function(array, index, newElem) {
+  let f = function(acc, elem) {
     if (acc.length == index) {
       return acc.concat([newElem])
     } else {
@@ -12,20 +19,139 @@ var replace = function(array, index, newElem) {
   return reduceL(f, [], array)
 }
 
-var reduceL = function(f, acc, arr) {
+let reduceL = function(f, acc, arr) {
   if (arr.length == 0) {
     return acc
   }
   return reduceL(f, f(acc, arr[0]), arr.slice(1))
 }
 
-/* Process input data */
-var filename = argv.data
-if (filename === undefined) {
-    error("Please specify a file name using --data <filename> command line")
+let zeroMatrixAsArray = function(dims) {
+  let rows = dims[0]
+  let columns = dims[1]
+  return repeat(rows, function() {
+    return repeat(columns, function() {
+      return undefined
+    })
+  })
 }
 
-var lines = fs.read(filename).split('\n')
+  /** Updates the (rowIndex, columnIndex) entry in a table
+   * (represented as 2 dimensional array) - sets it to 'element'
+   */
+let updateTable = function(table, rowIndex, columnIndex, element) {
+  return replace(table, rowIndex, replace(table[rowIndex], columnIndex, element))
+}
+
+/** Assumption is sampling returns a tensor */
+let discretiseContinuousDistribution = function(dist, samples) {
+  return Infer({method: 'forward', samples: samples}, function() {
+    let sample = sample(dist)
+    if (sample.dims !== undefined) {
+      return T.toScalars(sample)
+    } else {
+      return sample
+    }
+  })
+}
+
+let beliefOverAgentToString = function(belief) {
+  /** A little hacky - check if goalCoeffsBelief is discrete or not. If not, discretise */
+  let goalCoeffsBelief = (belief.goalCoeffsBelief.name != 'Discrete') ?
+    discretiseContinuousDistribution(belief.goalCoeffsBelief, 100) : belief.goalCoeffsBelief
+  let moneyCoeffExpectation = expectation(goalCoeffsBelief, extractElementAtIndex(0))
+  let trustCoeffExpectation = expectation(goalCoeffsBelief, extractElementAtIndex(1))
+  let alphaBelief = (belief.metaParamsBelief.alpha.name != 'Discrete') ?
+    discretiseContinuousDistribution(belief.metaParamsBelief.alpha, 50) : belief.metaParamsBelief.alpha
+  let alphaExpectation = expectation(alphaBelief)
+  return "E[moneyCoeff] = " + moneyCoeffExpectation
+    + "\nE[trustCoeff] = " + trustCoeffExpectation
+    + "\nE[rationality] = " + alphaExpectation
+}
+
+/** function for converting tensors to array, with a caveat that an array may be passed,
+ * in which case nothing should be done
+ * @param tensorOrArray
+ */
+let convertToArray = function(tensorOrArray) {
+  /** check if array */
+  if (_.isArray(tensorOrArray)) {
+    return tensorOrArray
+  }
+  /** otherwise assume it's a tensor */
+  return T.toScalars(tensorOrArray)
+}
+
+/** Prediction evaluation metrics */
+let evaluationMetrics = function() {
+  let probabilisticMSE = function() {
+    let evaluatePrediction = function(predictionDist, observedAction) {
+      return expectation(predictionDist, function(action) {
+        return Math.pow(action - observedAction, 2)
+      })
+    }
+
+    let aggregateEvaluations = function(evaluationsArray) {
+      return listMean(evaluationsArray)
+    }
+
+    return {
+      evaluatePrediction,
+      aggregateEvaluations
+    }
+  }()
+
+  return {
+    probabilisticMSE
+  }
+}()
+
+/** Sampling */
+let samplers = function() {
+  let tensorSampler = function() {
+    let sampleFunc = function(dist) {
+      /** Assumption is sampling from dist returns a tensor. So we convert to array*/
+      return T.toScalars(sample(dist))
+    }
+
+    return {
+      sampleFunc
+    }
+  }()
+
+  let normalSampler = function() {
+    let sampleFunc = function(dist) {
+      /** Assumption is sampling from dist returns a tensor. So we convert to array*/
+      return sample(dist)
+    }
+
+    return {
+      sampleFunc
+    }
+  }()
+  return {
+    'dirichlet': tensorSampler,
+    'discrete': normalSampler
+  }
+}()
+
+
+let sampleGoalCoeffs = function(goalCoeffsBelief) {
+  let sampler = samplers[goalCoeffsRep]
+  let sampleFunc = sampler.sampleFunc
+  return sampleFunc(goalCoeffsBelief)
+}
+
+/** Process input data */
+let filename = argv.data
+if (filename === undefined) {
+    error("Please specify a data file name using --data <filename> command line")
+}
+
+let allLines = fs.read(filename).split('\n')
+/** Filter out comments */
+let isNotAComment = function(line) { return !line.startsWith('%')}
+let lines = filter(isNotAComment, allLines)
 /* First line contains player names and identifiers
    Second line contains parameters of the experiment (endowments, k, horizon)
    Third line onwards contains experimental data */
@@ -35,189 +161,521 @@ var lines = fs.read(filename).split('\n')
             (ideally, player ids start from 0 and increment by 1)
     Transform into array: [[1, 'bob'],[2,'alice'],...,[5,'celine']] 
 */
-var processPlayersLine = function(line) {
-    var playerStringToArray = function(string) { 
-        var array = string.slice(1,-1).split(',')
+let processPlayersLine = function(line) {
+    let playerStringToArray = function(string) {
+        let array = string.slice(1,-1).split(',')
         return [parseInt(array[0]), array[1]]
     }
     return sort(map(playerStringToArray, line.split(';')))
 }
-var playersArray = processPlayersLine(lines[0])
+let playersArray = processPlayersLine(lines[0])
 display(playersArray)
 
 /* Process second line
-   Expected input format: eg "10,5,2,10" (er,ei,k,horizon)
-   Tranform into object: 
-     { endowments : { investor : 10, investee: 5}, 
-       k: 2, 
-       horizon: 10}
+   Expected input format: eg "10,5,2,10,1" (er,ei,k,horizon,beliefRep)
+   Tranform into object:
+   {
+     endowments : {
+      investor : 10,
+      investee: 5
+     },
+     k: 2,
+     horizon: 10,
+     beliefRepresentation: 'dirichlet'
+   }
 */
-var processParamsLine = function(line) {
-    var paramsArray = map(parseInt, line.split(','))
+let processParamsLine = function(line) {
+    let beliefRepresentations = ['discrete', 'dirichlet']
+    let paramsArray = map(parseInt, line.split(','))
     return {
       endowments : {
         investor: paramsArray[0],
         investee: paramsArray[1]
       },
       k: paramsArray[2],
-      horizon: paramsArray[3]
+      horizon: paramsArray[3],
+      beliefRepresentation: beliefRepresentations[paramsArray[4]]
     }
 }
-var params = processParamsLine(lines[1])
+let params = processParamsLine(lines[1])
 display(params)
 
-/* Finally process experimental data (lines 3 onwards)
-   Each line expected format: <id1>,<id2>,<roundNo>,<investment>,<return>
-   Transform into array of arrays grouped by pairs of players eg
-   [[[1,2,1,5,4],...,[1,2,8,0,0]],[1,3,1,7,8],...,[1,3,8,4,6],...]
+/** Finally process experimental data (lines 3 onwards)
+ * @param lines | array of arrays, each of format:
+ *                  <id1>,<id2>,<roundNo>,<investment>,<return>
+ * @returns array of arrays of arrays, converted to numbers, grouped by pairs of players,
+ * eg [[[1,2,1,5,4],...,[1,2,8,0,0]],[1,3,1,7,8],...,[1,3,8,4,6],...]
 */
-var processDataLines = function(lines) {
-    var dataLineToArray = function(line) { 
+let processDataLines = function(lines) {
+    let dataLineToArray = function(line) {
         return map(parseInt, line.split(',')) 
     }
-    var samePlayerPair = function(arr1, arr2) {
+    let samePlayerPair = function(arr1, arr2) {
         return arr1[0] == arr2[0] && arr1[1] == arr2[1]
     }
     return groupBy(samePlayerPair, map(dataLineToArray, lines))
 }
-var data = processDataLines(lines.splice(2,lines.length-2))
+let data = processDataLines(lines.splice(2,lines.length-2))
+display("DATA:")
 display(data)
 
-/* 
-Now set up the main players array which will hold all their parameters and beliefs
+/**
+Now set up the main players array which will hold our belief over all their
+parameters and beliefs.
 The idea is to store it in a (part-empty) array where data corresponding to player
 with id <id> is stored in the array position indexed by <id>. Since we don't enforce
 player ids to start from 0 and increment by 1, resulting array might have 'holes'.
 Each entry of this array is (either undefined or) an object representing an agent 
-(player), in particular its name, our current belief about its parameters and our 
-current belief about its belief about other agents' parameters. The beliefs are stored
-in an array that is again indexed by player ids and might have 'holes'.
+(player), in particular its (i) name, (ii) our current belief about its parameters
+and (iii) our current belief about its belief about other agents' parameters.
+The beliefs are stored in an array that is again indexed by player ids and might have 'holes'.
 The object has the following format:
 { 
 name: 'bob',
-params: <distribution over {alpha, moneyWeight, trustWeight}>,
-beliefs: <array of (distributions over params/undefined)>
+goalCoeffsBelief: <distribution over vectors of coeffs [c1,c2,...,cn] where sum (ci)=1>,
+metaParamsBelief: <distribution over objects
+  {
+    alpha: <number>,
+    discountFactor: <number>,
+    lookAhead: <number>>
+  }>,
+mentalEstimationsBelief: an array of belief over each mental estimation
+  (where mental estimation is assumed to be a single number [expectation]),
+beliefBelief: a belief array, see method below
 }
+
+@param playersArray: array of pairs [<playerID>, <playerName>], eg
+ [[1, 'bob'],[2,'alice'],...,[5,'celine']]
 */
-// Input format: [[1, 'bob'],[2,'alice'],...,[5,'celine']]
-var constructPlayersDataStructure = function(playersArray) {
-    var paramsPrior = Infer({method: 'forward'}, function() {
-        var alpha = gamma(25,0.25)
-        var moneyWeight = uniform(0,1)
-        var trustWeight = uniform(0,1)
-        return {alpha, moneyWeight, trustWeight}
-    })
-    var constructBeliefArray = function(playersArray, playerID) {
-        var initialBelief = Infer({method: 'forward', samples: 30}, function() {
-          var alpha = gaussian(20,4)
-          var moneyWeight = beta(2,2)
-          var trustWeight = beta(2,2)
-          return { alpha, moneyWeight, trustWeight }
-        })
-        var constructBeliefArrayHelper = function(playersArray, playerID, iteration, index) {
+
+let goalCoeffsRep = 'dirichlet'
+let constructPlayersDataStructure = function(playersArray) {
+    /** Our prior belief over goal coefficients of an agent */
+    /** currently, uniform based on sampling. improve later*/
+    /** a prior could be encoded here */
+    // let goalCoeffsPrior = Infer({method: 'forward', samples: 20}, function() {
+    //   let a = uniform(0,1)
+    //   return [a, 1-a]
+    // })
+
+    // let goalCoeffsPrior = Beta({a:1, b:1})
+    let goalCoeffsPrior = Dirichlet({alpha: Vector([1,1])})
+
+    /** Our prior belief over meta params of an agent */
+    let metaParamsPrior = {
+      /** We only try to learn rationality of an agent */
+        // alpha: Uniform({a: 0, b: 100}),
+        alpha: Gamma({shape: 5, scale: 1}),
+        discountFactor: Delta({v: 0.8}),
+        lookAhead: Delta({v: 2})
+    }
+
+    /** Our prior belief over mental estimations of an agent */
+    // let mentalEstimationsPrior = [Categorical({vs: [0.2, 0.4, 0.6, 0.8]})]
+    /** Assumed to be known for now */
+    let mentalEstimationsPrior = [Delta({v: [0.6]})]
+
+    /** Construct belief array for *playerID*.
+     *  Belief array consists of our belief over agent's belief over every other player.
+     *  It is an array of distributions, where each distribution is over belief parameters.
+     *  Typically, there are two agents only, so we expect the array to only contain one
+     *  distribution, and one (or more) 'undefined' (>1 if player IDs don't start from 0).
+     *  (eg if there are two players with ids 1 and 2, then belief array for player 1 will be
+     *  [undefined, undefined, <belief_over_id1_belief_over_id2>]
+     * */
+    let constructBeliefArray = function(playersArray, playerID) {
+        // let initialBeliefOverBelief = Infer({method: 'forward', samples: 10}, function() {
+        //   let a = uniform(0,1)
+        //   return [1+a, 2-a]
+        // })
+        /** this is our prior over each agent's belief over another agent
+         * it could be customized on a per agent basis, for now we make it one simple default */
+        let initialBeliefOverBelief = Delta({v: [1.5,4]})
+        let constructBeliefArrayHelper = function(playersArray, playerID, iteration, index) {
             if (index > playersArray.length - 1) {
                 return []
             }
-            var nextPlayerID = playersArray[index][0]
+            let nextPlayerID = playersArray[index][0]
             if (iteration == nextPlayerID && iteration != playerID) {
-                return [initialBelief].concat(
+                return [initialBeliefOverBelief].concat(
                     constructBeliefArrayHelper(playersArray, playerID, iteration+1, index+1))
             }
-            var nextIndex = (iteration == playerID) ? index+1 : index
+            let nextIndex = (iteration == playerID) ? index+1 : index
             return [undefined].concat(
                 constructBeliefArrayHelper(playersArray, playerID, iteration+1, nextIndex))
         }
         return constructBeliefArrayHelper(playersArray, playerID, 0, 0)
     }
 
-    var constructPlayersHelper = function(array, iteration, index) {
-        if (index > array.length - 1) {
+    /** constructPlayersHelper | function that creates the player data structure
+     * @param playersArray | array of pairs [<playerID, name>], assumed ordered by ID
+     * @param iteration | number of entries the resulting array already has
+     * @param index | current index into *playersArray*, indicates next player
+     *  for which we will create an entry in players data structure
+     *
+     * @returns an array with holes (undefined), where ith entry contains an object
+     * representing an agent (with id i) and our belief about agent's parameters and beliefs.
+     **/
+    let constructPlayersHelper = function(playersArray, iteration, index) {
+        if (index > playersArray.length - 1) {
             return []
         }
-        var nextPlayerID = array[index][0]
+        let nextPlayerID = playersArray[index][0]
         if (iteration == nextPlayerID) {
-            var player = {
-                name: array[index][1], 
-                params: paramsPrior, 
-                beliefs: constructBeliefArray(array, nextPlayerID)
+            let player = {
+                name: playersArray[index][1],
+                goalCoeffsBelief: goalCoeffsPrior,
+                metaParamsBelief: metaParamsPrior,
+                beliefBelief: constructBeliefArray(playersArray, nextPlayerID),
+                mentalEstimationsBelief: mentalEstimationsPrior,
             }
-            return [player].concat(constructPlayersHelper(array, iteration+1, index+1))
+            return [player].concat(constructPlayersHelper(playersArray, iteration+1, index+1))
         }
-        return [undefined].concat(constructPlayersHelper(array, iteration+1, index))
+        return [undefined].concat(constructPlayersHelper(playersArray, iteration+1, index))
     }
     return constructPlayersHelper(playersArray, 0, 0)
 }
-var players = constructPlayersDataStructure(playersArray)
+
+/** *players* is an array */
+let players = constructPlayersDataStructure(playersArray)
 display(players)
 
+let csmg = makeCSMG(makeTrustCSMG(params))
+let transitionFn = csmg.transitionFn
+let stateToString = csmg.API.gameSpecific.stateToString
 
-var csmg = makeTrustCSMG(params)
-var transition = csmg.transition
+display("CSMG:")
+display(csmg)
 
-/* compute posterior belief about 'players', given 'data'
-- 'players' is our big array of objects representing players (name, params, beliefs)
-- 'data' is an array of array, each inner array representing one play of trust game 
-    between two players, e.g. [[[1,2,0,10,16], [1,2,1,10,6]], [[2,1,0,4,4], [2,1,1,1,1]]]
-*/ 
-var posterior = function(players, data) {
-
-    var processRound = function(priorAndState, round) {
-      var investorID = round[0]
-      var investeeID = round[1]
-      var investedAmount = round[3]
-      var returnedAmount = round[4]
-
-      var prior = priorAndState[0]
-      var state = priorAndState[1]
-      // two transfers:
-      // 1.investor -> investedAmount -> investee
-      // 2.investee -> returnedAmount -> investor
-      // 1 updates our belief of investor's params and belief and also 
-      //   our belief of investee's belief of investor's params
-      // 2 updates out belief of investee's params and belief and also
-      //   our belief of investor's belief of investee's params
-      var investorPosterior = Infer({model() {
-        var params = sample(prior.investor.params)
-        var belief = sample(prior.investor.beliefs)
-        var investor = makeAgent(params, 'investor', trustbelief, belief, csmg)
-        var action = act(csmg.initialState)
-        condition(action == investedAmount)
-        return {params, belief}
-      }})
-      var nextState = transition(initialState, investedAmount)
-      var investeePosterior = Infer({model() {
-        var params = sample(prior.investee.params)
-        var belief = sample(prior.investee.beliefs)
-        var investee = makeAgent(params, 'investee', trustbelief, belief, csmg)
-        var action = act(nextState)
-        condition(action == returnedAmount)
-        return {params, belief}
-      }})
-      return {
-        investor: investorPosterior,
-        investee: investeePosterior
+let sampleAgentCharacteristicsFromBelief = function(belief) {
+  // let moneyCoeff = sample(prior.goalCoeffsBelief)
+  let params = {
+    goalCoeffs: convertToArray(sample(belief.goalCoeffsBelief)),
+    // goalCoeffs: [moneyCoeff, 1-moneyCoeff],
+    metaParams: {
+      alpha: sample(belief.metaParamsBelief.alpha),
+      discountFactor: sample(belief.metaParamsBelief.discountFactor),
+      lookAhead: sample(belief.metaParamsBelief.lookAhead)
+    }
+  }
+  let initialState = function() {
+    let sampleMentalEstimation = function(priorDist) {
+      return Delta({v: sample(priorDist)})
+    }
+    return {
+      // belief: sample(prior.beliefBelief[beliefIndex]),
+      belief: sample(belief.beliefBelief),
+      mentalEstimations: map(sampleMentalEstimation, belief.mentalEstimationsBelief),
+      // metaParamsEstimations: sample(prior.metaParamsEstimations)
+      metaParamsEstimations: { // we don't try to learn those
+        alpha: Categorical({vs: [100]}),
+        lookAhead: Categorical({vs: [2]}),
+        discountFactor: Categorical({vs: [0.8]})
       }
     }
-
-    var processOnePlay = function(players, rounds) {
-      if (rounds.length == 0) {
-        return players
-      }
-      var investorID = rounds[0][0]
-      var investeeID = rounds[0][1]
-      var prior = {
-        investor: players[investorID],
-        investee: players[investeeID]
-      }
-      var posterior = reduceL(processRound, [prior, game.initialState], rounds)
-      return replace(replace(players, investorID, posterior.investor), investeeID, posterior.investee)
-    }
-    // return posterior(players, iterations, 0)
-
-    return reduceL(processOnePlay, players, data)
+  }()
+  return {
+    params,
+    initialState
+  }
+  // return makeAgent(params, role, initialState, csmg)
 }
 
-// test replace
-var arr = [1,2,3,4,5]
-display(replace(arr, 0, 0))
-display(replace(arr, 1, 1))
+/** posterior | learn agent characteristics (and beliefs, later) from data
+ * @param players | big array containing prior belief about agents
+ * @param data | parsed input data, detailing transfers and returns in each round,
+ *    @type array of arrays, each inner array representing one play of trust game
+ *    between two players, e.g. [[[1,2,0,10,16], [1,2,1,10,6]], [[2,1,0,4,4], [2,1,1,1,1]]]
+*/ 
+let posteriorAndGameState = function(players, data) {
+  let updatePrior = function(prior, agentID, observedAction, atState) {
+    display("Prior of " + agentID + ": " + beliefOverAgentToString(prior))
+    let jointPosterior = Infer({method: 'MCMC', samples: 100}, function() {
+    // let jointPosterior = Infer({method: 'SMC', particles: 100}, function() {
+      let agentCharacteristics = sampleAgentCharacteristicsFromBelief(prior) // index should not be needed
+      // display("\n\nTry new values: " + agentCharacteristics.params.goalCoeffs)
+      let agent = makeAgent(agentCharacteristics.params, agentID, agentCharacteristics.initialState, csmg)
+      let act = agent.act
+      let actionDist = act(atState)
+      let action = sample(actionDist)
+      // display("computed action: " + action + " with prob " + Math.exp(actionDist.score(action)) + ", investedAmount: " + investedAmount)
+      condition(action == observedAction)
+      return {
+        goalCoeffs: agentCharacteristics.params.goalCoeffs,
+        alpha: agentCharacteristics.params.metaParams.alpha,
+        discountFactor: agentCharacteristics.params.metaParams.discountFactor,
+        lookAhead: agentCharacteristics.params.metaParams.lookAhead,
+        // metaParams: agentCharacteristics.params.metaParams
+      }
+    })
+    // display("joint posterior computed")
+    let posterior = {
+      name: prior.name,
+      goalCoeffsBelief: marginalize(jointPosterior, 'goalCoeffs'),
+      metaParamsBelief: {
+        alpha: marginalize(jointPosterior, 'alpha'),
+        discountFactor: marginalize(jointPosterior, 'discountFactor'),
+        lookAhead: marginalize(jointPosterior, 'lookAhead')
+      },
+      // metaParamsBelief: marginalize(jointPosterior, 'metaParams'),
+      /** for now, we dont learn agent's state */
+      beliefBelief: prior.beliefBelief,
+      // beliefBelief: replace(prior.investor.beliefBelief, investeeID, marginalize(investorJointPosterior, 'belief')),
+      mentalEstimationsBelief: prior.mentalEstimationsBelief,
+      // mentalEstimationsBelief: marginalize(investorJointPosterior, 'mentalEstimations'),
+    }
+    display(posterior)
+    display("\nPosterior of " + agentID + ": " + beliefOverAgentToString(posterior))
+    return posterior
+  }
+
+/** This is the 'reduction' function that updates our belief over agent's characteristic
+ *  and mental state based on their observed action.
+ *
+ * @param priorAndState
+ *   accumulator, consisting of
+ *   - prior - i.e., belief about agent's characteristics & mental state, of the form
+ *      {
+ *        investor: {
+ *          name: <name>,
+ *          goalCoeffsBelief: <distribution>,
+ *          metaParamsBeief: <distribution>,
+ *          beliefBelief: array of <distribution>, indexed by agentID,
+ *          mentalEstimationsBelief: array of <distribution>, indexed by mentalEstimation index
+ *        },
+ *        investee: {..}
+ *      }
+ *   - state - current state of the game
+ * @param roundData
+ *   an array recording invested and returned amount
+ * @returns
+ *   an updated accumulator, where belief is updated in bayesian manner and state
+ *   according to transition function
+ */
+  let processRound = function(priorAndState, roundData) {
+    let investorID = roundData[0]
+    let investeeID = roundData[1]
+    let investedAmount = roundData[3]
+    let returnedAmount = roundData[4]
+
+    let prior = priorAndState[0]
+    let state = priorAndState[1]
+
+    display(stringInABox("Process round " + roundData[2]))
+    display("investment: " + investedAmount + ", returned: " + returnedAmount + " at state " + stateToString(state))
+
+    let priorFullInvestorBeliefBelief = prior.investor.beliefBelief
+    let investorPrior = extend(prior.investor, {beliefBelief: prior.investor.beliefBelief[investeeID]})
+    let investorPosteriorSimple = updatePrior(investorPrior, 'investor', investedAmount, state)
+    let posteriorFullInvestorBeliefBelief = replace(priorFullInvestorBeliefBelief, investeeID, investorPosteriorSimple.beliefBelief)
+    let investorPosterior = extend(investorPosteriorSimple, {beliefBelief: posteriorFullInvestorBeliefBelief})
+
+    let nextState = transitionFn(state, investedAmount)
+
+    let priorFullInvesteeBeliefBelief = prior.investee.beliefBelief
+    let investeePrior = extend(prior.investee, {beliefBelief: prior.investee.beliefBelief[investorID]})
+    let investeePosteriorSimple = updatePrior(investeePrior, 'investee', returnedAmount, nextState)
+    let posteriorFullInvesteeBeliefBelief = replace(priorFullInvesteeBeliefBelief, investorID, investeePosteriorSimple.beliefBelief)
+    let investeePosterior = extend(investeePosteriorSimple, {beliefBelief: posteriorFullInvesteeBeliefBelief})
+
+    let finalState = transitionFn(nextState, returnedAmount)
+
+    let posterior =  {
+      investor: investorPosterior,
+      investee: investeePosterior
+    }
+
+    display("Round " + roundData + " processed.")
+    return [posterior, finalState]
+  }
+
+  let processOnePlay = function(playersAndGameStateTable, play) {
+    let players = playersAndGameStateTable[0]
+    let gameStateTable = playersAndGameStateTable[1]
+    if (play.length == 0) {
+      return players
+    }
+    let investorID = play[0][0]
+    let investeeID = play[0][1]
+    let prior = {
+      investor: players[investorID],
+      investee: players[investeeID]
+    }
+    let posteriorAndFinalState = reduceL(processRound, [prior, csmg.initialState], play)
+    let posterior = posteriorAndFinalState[0]
+    let finalState = posteriorAndFinalState[1]
+    let updatedPlayers = replace(replace(players, investorID, posterior.investor), investeeID, posterior.investee)
+    let updatedGameStateTable = updateTable(gameStateTable, investorID, investeeID, finalState)
+    return [updatedPlayers, updatedGameStateTable]
+  }
+  // return posterior(players, iterations, 0)
+
+  /** we create a table to store game state where interaction between agents finished
+  */
+  let n = players.length
+  let gameStateTable = zeroMatrixAsArray([n, n])
+  return reduceL(processOnePlay, [players, gameStateTable], data)
+}
+
+/** compute posterior based on available data */
+let posteriorAndGameState = posteriorAndGameState(players, data)
+let playersPosterior = posteriorAndGameState[0]
+let gameStateTable = posteriorAndGameState[1]
+display(playersPosterior)
+
+/** posterior has the following format
+ * {
+ *   investor: {
+ *     name: <>,
+ *     goalCoeffsBelief: <>,
+ *     metaParamsBelief: {
+ *       alpha: <>,
+ *       discountFactor: <>,
+ *       lookAhead: <>
+ *     },
+ *     beliefBelief: <>,
+ *     mentalEstimationsBelief: prior.mentalEstimationsBelief,
+ *   }
+ * }
+ */
+
+
+/**
+ * At this point we have 'posterior' which describes our belief about each agent's
+ * characteristics and mental state.
+ * We now want to use this acquired knowledge to predict actions of agents.
+ * We will read another file that contains agents' transfers, but we don't read
+ * the transfers themselves; instead we try to predict them and record our predictions
+ * vs actual transfers
+ */
+
+/** First, read the data from the file and save in an array as usual */
+let predictFilename = argv.predict
+if (predictFilename === undefined) {
+  error("Please specify a prediction file name using --predict <filename> command line")
+}
+
+let allLines = fs.read(predictFilename).split('\n')
+/** Filter out comments */
+let lines = filter(isNotAComment, allLines)
+let predictionData = processDataLines(lines)
+/** predictionData is an array of 'plays', where each play is a sequence
+ * of rounds between the same players, where each 'round' consists
+ * of ids of players, roundNo and transfers, e.g. format:
+ * [[[1,2,1,5,4],...,[1,2,8,0,0]],[1,3,1,7,8],...,[1,3,8,4,6],...]
+ *   \                         /  \  round /
+ *    \       one play        /    \      /
+ */
+
+/**
+ * We now want to process all the transfers and compare them with our predictions
+ */
+
+// let investorCharacteristicsBelief = posterior.investor
+// let investeeCharacteristicsBelief = posterior.investee
+
+let computePredictedTransferDistribution = function(playerCharacteristicsBelief, role, state) {
+  let dist = Infer({ method: 'enumerate'}, function() {
+    let agentCharacteristics = sampleAgentCharacteristicsFromBelief(playerCharacteristicsBelief)
+    let agent = makeAgent(agentCharacteristics.params, role, agentCharacteristics.initialState, csmg)
+    let act = agent.act
+    let actionDist = act(state)
+    let action = sample(actionDist)
+    return action
+  })
+  return dist
+}
+
+/** predictOneRound
+ *
+ * @param predictionsAndState | consists of an array of predictions (along with actual transfers)
+ *  as well as current state of execution
+ * @param roundArray | array recording player ids, round no and transfers for one round
+ */
+let predictOneRound = function(predictionsAndState, roundArray) {
+  let state = predictionsAndState[1]
+  let investorId = roundArray[0]
+  let investeeId = roundArray[1]
+  let roundNo = roundArray[2]
+  let investment = roundArray[3]
+  let returned = roundArray[4]
+  display("predict action (actual was: " + investment + ") of investor at state " + stateToString(state))
+  display("playersPosterior[investorId]:")
+  // display(playersPosterior[investorId])
+  let investorCharacteristicsBelief = extend(playersPosterior[investorId],
+    {beliefBelief: playersPosterior[investorId].beliefBelief[investeeId]})
+  let predictedInvestmentDist = computePredictedTransferDistribution(investorCharacteristicsBelief, 'investor', state)
+  display(predictedInvestmentDist)
+
+  let nextState = transitionFn(state, investment)
+  display("predict action (actual was: " + returned + ") of investee at state " + stateToString(nextState))
+  display("playersPosterior[investorId]:")
+  // display(playersPosterior[investeeId])
+  let investeeCharacteristicsBelief = extend(playersPosterior[investeeId],
+    {beliefBelief: playersPosterior[investeeId].beliefBelief[investorId]})
+  let predictedReturnDist = computePredictedTransferDistribution(investeeCharacteristicsBelief, 'investee', nextState)
+  display(predictedReturnDist)
+
+  let finalState = transitionFn(nextState, returned)
+
+  let pastPredictions = predictionsAndState[0]
+  let prediction = [roundNo,
+    [investment, predictedInvestmentDist], [returned, predictedReturnDist]]
+  let updatedPredictions = pastPredictions.concat([prediction])
+
+  return [updatedPredictions, finalState]
+}
+
+/** predictOnePlay predicts
+ *
+ * @param acc - records transfers and predictions made so far
+ * @param playArray - an array consisting of round arrays
+ */
+let predictOnePlay = function(predictionsAndGameStateTable, playArray) {
+  if (playArray.length == 0) {
+    return predictionsAndGameStateTable
+  }
+  let investorId = playArray[0][0]
+  let investeeId = playArray[0][1]
+  let pastPredictions = predictionsAndGameStateTable[0]
+  let gameStateTable = predictionsAndGameStateTable[1]
+  let startingState = gameStateTable[investorId][investeeId]
+  let predictionsAndFinalState = reduceL(predictOneRound, [[], startingState], playArray)
+  let predictions = predictionsAndFinalState[0]
+  let finalState = predictionsAndFinalState[1]
+  let updatedPredictions = pastPredictions.concat([investorId, investeeId, predictions])
+  let updatedGameStateTable = updateTable(gameStateTable, investorId, investeeId, finalState)
+  return [updatedPredictions, updatedGameStateTable]
+}
+
+let predictionsAndGameState = reduceL(predictOnePlay, [[], gameStateTable], predictionData)
+
+/** predictions are grouped by player pairs, where for each player pair,
+ * an array of pairs <predictionDist, observedAction> is recorded
+ * eg array of triples [<investorId>, <investeeId>, <playPredictions>],
+ * where
+ * playPredictions is array of 'roundPrediction' triples
+ * [
+ *   roundNo,
+ *   [<investmentPrediction>, <actualInvestment>],
+ *   [<returnPrediction>, <actualReturn>]
+ * ]
+ */
+let predictions = predictionsAndGameState[0]
+/**
+ *
+ * @param roundPrediction | a triple see above
+ */
+let describeRoundPrediciton = function(roundPrediction) {
+
+}
+
+let describePlayPredictions = function(prediction) {
+  let investorId = prediction[0]
+  let investeeId = prediction[1]
+  let playPredictions = prediction[2]
+  // let = map(evaluate)
+  let playDescription = map(describeRoundPrediction, playPredictions)
+  return "Play between agent " + investorId + " and " + investeeId + ": " + playDescription
+}
+let descriptions = map(describePlayPredictions, predictions)
