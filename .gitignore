@@ -2,3 +2,5 @@
 *.csv
 
 other/
+
+*.DS_Store
