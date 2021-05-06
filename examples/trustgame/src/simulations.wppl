@@ -66,7 +66,7 @@ let getAgents = function(goalCoeffs, beliefs, trustExps) {
 
 let names = ['alice','bob']
 
-/* Setup game structure */
+/** Setup game structure */
 let gameSpecificParams = {
   endowments : {
     'investor': 4,
@@ -459,26 +459,30 @@ let conmanCognitiveExperiment = function() {
     }
 
     return repeat(10, randomScenario)
-    // return [
-    //   {
-    //     name: "basic",
-    //     agents: [
-    //       getAlice([0.5,0.5],2,[1,1],0.75),
-    //       getBob(5, 0.5)
-    //     ],
-    //     options: getOptions(3),
-    //     gameSpecificParams: getGameSpecificParams(3)
-    //   }
-    // ]
-    // simulateScenarios([scenario], makeTrustCSMG, ['alice', 'bob'], callbacks)
   }()
 
   return {
     name: "conmanCognitiveExperiment",
-    desc: "This experiment attempts to recreate con man behaviour using " +
-      "the framework and finding out how the other player reacts." +
-      " The idea is to make Bob only care about money (goalCoeffs = [1,0]) " +
-      "and encode him knowing that the game will last x rounds",
+    desc: "This experiment simulates a play between a standard " +
+      "cognitive agent as Alice (with randomised parameters and state) " +
+      "and a con man as Bob. Interestingly, con man is also modeled as " +
+      "a cognitive agent, but slightly 'tweaked':\n" +
+      "- he knows the horizon of the game\n" +
+      "- he only cares about the money ([1,0] - goal coeffs vector)\n" +
+      "- he has a different model of trust than Alice (see code for " +
+      "detail but gist of it is that he assumes the bigger the transfer," +
+      " the more Alice's trust increases)\n" +
+      "- he assumes that Alice's investment will be proportional to her" +
+      " trust -- so more trust means higher investments\n" +
+      "- he has a long lookahead to allow longer term planning\n" +
+      "Our expectation is that given the above properties, Bob will " +
+      "figure out that it's in his interest to increase Alice's trust " +
+      "by being very cooperative initially and then defect on the last " +
+      "move (assuming the game last for 3,4 rounds). " +
+      "" +
+      "Note that the scenarios are randomised so the values printed " +
+      "are just a representation and they won't be the same as the " +
+      "values used for experiments",
     scenarios,
     callbacks,
     names
