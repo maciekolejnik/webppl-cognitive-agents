@@ -1,4 +1,5 @@
 *.txt
+!License.txt
 *.csv
 
 .idea/*

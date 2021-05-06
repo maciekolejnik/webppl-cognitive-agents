@@ -1,4 +1,4 @@
-# webppl-trust
+# webppl-cognitive-agents
 
 This is a WebPPL library for modelling *cognitive agents* 
 interacting in an environment we call *cognitive stochastic 
@@ -42,7 +42,8 @@ multiplayer game model
 
 There are also several auxiliary files in the ``aux`` subdirectory:
 * ``lambdas.wppl`` contains definitions of some trivial functions,
-so they can be used as lambdas in HOFs like maps and folds
+so they can be used as lambdas in HOFs like maps and folds (called 
+``reduce`` here)
 * ``logging.wppl`` implements a basic logging mechanism
 * ``assert.wppl`` implements a basic assertion mechanism
 * ``auxiliary.wppl`` collects various helper functions
@@ -75,11 +76,11 @@ technical reason - WebPPL doesn't seem to have a mechanism for
 multiple files, creating a package is the only way I found of 
 making it work. Assuming you have added your example to ``examples``
 directory, to run the experiments from the top-level directory
-(``webppl-trust``), you would execute
+(``webppl-cognitive-agents``), you would execute
 ```
-$ webppl examples/<exampleName>/src/simulations.wppl --require . --require examples/<exampleName>/
+$ webppl examples/<exampleName>/src/simulations.wppl --require . --require examples/<exampleName>/ [--] [--experiment
 ```  
-So besides including the ``webppl-trust`` package, you must also 
+So besides including the ``webppl-cognitive-agents`` package, you must also 
 include your example.
 
 As mentioned above, the experiments will be either (i) simulating 
