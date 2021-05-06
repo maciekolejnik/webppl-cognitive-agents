@@ -4,7 +4,7 @@
  * increasing order wrt to complexity.
  *
  * From the commandline, run
- $ webppl test.wppl --require ../webppl-cognitive-agents
+ $ webppl integration.wppl --require ../webppl-cognitive-agents
  */
 let tests = function() {
 

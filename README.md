@@ -54,7 +54,7 @@ providing a uniform interface
 
 Other than that, ``examples`` directory contains our case studies - 
 see below. 
-Limited unit tests are in ``test`` directory, and ``test.wppl`` is 
+Limited unit tests are in ``test`` directory, and ``integration.wppl`` is 
 a sort of integration test. Finally, ``package.json`` is a config
 file. 
 

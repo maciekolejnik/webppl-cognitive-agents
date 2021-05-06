@@ -1,5 +1,5 @@
 /** To run
- $ webppl examples/trustgame/test.wppl --require . --require examples/trustgame
+ $ webppl examples/trustgame/integration.wppl --require . --require examples/trustgame
  from the top level directory
  */
 
