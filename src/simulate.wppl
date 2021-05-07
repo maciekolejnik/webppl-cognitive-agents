@@ -30,42 +30,46 @@
  *  are needed for the run function)
  *  */
 let run = function(experiment, makeGame) {
+  let getParams = experiment.getParams
+  let params = (isDefined(getParams)) ? getParams() : {}
   if (isDefined(experiment.run)) {
     /** case (2) */
     let run = experiment.run
-    /** check if params needed */
-    let getParams = experiment.getParams
-    if (isDefined(getParams)) {
-      let params = getParams(argv)
-      run(params)
-      return
-    }
-    run()
-    return
+    return run(params)
+    // if (isDefined(getParams)) {
+    //   let params = getParams(argv)
+    //   return run(params)
+    // }
+    // return run()
   }
   /** case (1) */
   let names = experiment.names
   let callbacks = experiment.callbacks
-  let scenarios = experiment.scenarios
+  let getScenarios = experiment.getScenarios
+  let scenarios = getScenarios(params)
+  let wrapUp = isDefined(experiment.wrapUp) ? experiment.wrapUp : getConstantFn(1)
   let runsStr = argv.runs
   let runs = (isDefined(runsStr)) ? parseInt(runsStr) : (experiment.runsDefault || 1)
   assert(runs > 0, "runs must be greater than 0")
   let scenarioIDStr = argv.scenario
   if (isDefined(scenarioIDStr)) {
+    assert(isDefined(argv.experiment), "can't specify scenarioID " +
+      "without specifying experimentID!")
     let scenarioID = parseInt(scenarioIDStr)
     assert(scenarioID >= 0 && scenarioID < scenarios.length,
       "passed scenarioID (" + scenarioID + ") is not a valid " +
       "index into scenarios array (see above)")
     let scenario = scenarios.slice(scenarioID, scenarioID + 1)
-    simulateScenarios(scenario, makeGame, names, callbacks, runs)
-    return
+    let trajectories = simulateScenarios(scenario, makeGame, names, callbacks, runs)
+    return wrapUp(trajectories, scenario)
   }
-  simulateScenarios(scenarios, makeGame, names, callbacks, runs)
+  let trajectories = simulateScenarios(scenarios, makeGame, names, callbacks, runs)
+  return wrapUp(trajectories, scenarios)
 }
 
 let runAll = function(experiments, makeGame) {
   map(function(experiment) {
-    return run(experiment, makeGame)
+    run(experiment, makeGame)
   }, experiments)
 }
 
@@ -100,16 +104,16 @@ let processCommandline = function(makeGame, experiments) {
       display("\n" + index + ": " + name)
       display(desc)
 
-      let scenarios = assertDefined(experiment.scenarios,
-        "processCommandline(): experiment.scenarios undefined!")
-      display("It includes the following scenarios:")
-      mapIndexed(function(idx, scenario) {
-        assertDefined(scenario.name,
-          "processCommandline(): scenario.name undefined!")
-        display("  " + idx + ": " + scenario.name)
-      }, scenarios)
-      display("Each will be run " + (experiment.runsDefault || 1) + " times " +
-        "by default (this can be changed)")
+      // let getScenarios = assertDefined(experiment.getScenarios,
+      //   "processCommandline(): experiment.scenarios undefined!")
+      // display("It includes the following scenarios:")
+      // mapIndexed(function(idx, scenario) {
+      //   assertDefined(scenario.name,
+      //     "processCommandline(): scenario.name undefined!")
+      //   display("  " + idx + ": " + scenario.name)
+      // }, scenarios)
+      // display("Each will be run " + (experiment.runsDefault || 1) + " times " +
+      //   "by default (this can be changed)")
     }, experiments)
     display("\nTo run a selected one, please pass --experiment <experimentID> " +
       "(which is the number preceding experiment name above) " +
@@ -121,8 +125,11 @@ let processCommandline = function(makeGame, experiments) {
       "To modify the default number of runs, pass --runs " +
       "<numberOfRuns>.\n" +
     "If the experiment you're running requires parameters to be passed," +
-      " pass them using [--<paramName> <paramValue>] syntax where names " +
-      "of required params are in the experiment description")
+      " pass them using --<paramName> <paramValue> syntax where names " +
+      "of required params are in the experiment description.\n" +
+    "To change the logging level, pass --log <level>. Possible levels " +
+      "are 0 to 5 where 0 means no logging and 5 logs almost everything. " +
+      "Logs are printed ")
     return
   }
   let experimentIDStr = argv.experiment
@@ -133,9 +140,12 @@ let processCommandline = function(makeGame, experiments) {
       "experimentID must be a valid index into experiments array" +
       " of length " + experiments.length + " but passed: " + experimentID)
     let experiment = experiments[experimentID]
-    run(experiment, makeGame)
+    let result = run(experiment, makeGame)
+    return extend(result, {
+      experiment: experimentID
+      })
   } else {
-    runAll(experiments, makeGame)
+    return runAll(experiments, makeGame)
   }
 }
 
@@ -157,7 +167,7 @@ let processCommandline = function(makeGame, experiments) {
  * game, agents, state, names
  * @param numberOfRunsOpt | (optional) how many times to run each scenario
  *
- * @returns an array of arrays of trajectories
+ * @returns {Array<Array<>>} an array of arrays of trajectories
  * [<scenario 1 trajectories>, <scenario 2 trajectories>, ...]
  */
 let simulateScenarios = function (scenarios, getGameSetup, namesOpt, callbacksOpt, numberOfRunsOpt) {
@@ -179,7 +189,7 @@ let simulateScenarios = function (scenarios, getGameSetup, namesOpt, callbacksOp
 }
 
 /**
- * @param scenario has format
+ * @param scenario {Object} has format
  * {
  * name: <name of scenario>,
  * options: <array of params to be passed to 'getGameSetup'>
@@ -200,6 +210,16 @@ let simulateScenarios = function (scenarios, getGameSetup, namesOpt, callbacksOp
        }
      }
  * }
+ * @param gameSetup {Object} defines specifics of a modeled game
+ * @param names {Array<String>}
+ * @param callbacksOpt {Object} (optional) gives functions to call
+ * at the start of scenario (setup), after each action (periodic)
+ * and at the end of scenario (final)
+ *
+ * @returns {Array<Pair<State,Action>>} the trajectory of this
+ * scenario, i.e., an array of (state, action) pairs. Note that
+ * the last pair contains a state and an array of total rewards
+ * accumulated by agents throughout execution
  */
 let simulateScenario = function (scenario, gameSetup, names, callbacksOpt) {
   /** here we're validating user input */
@@ -357,6 +377,32 @@ let simulate = function (game, agents, horizon, names, callbacksOpt, stateOpt) {
     "found: " + traj.length + ", expected: " + (horizon + 1))
   explain("Rewards accumulated by players: " + toString(traj[horizon][1]))
   return traj
+}
+
+let scenariosTrajectoriesToScenariosString = function(trajectoriess) {
+  if (trajectoriess.length === 1) {
+    /** Only one scenario */
+    return scenarioTrajectoriesToRunsString(trajectoriess[0])
+  }
+  let scenariosStrings = mapIndexed(function(i, trajectories) {
+    return "Scenario " + i + ": " + scenarioTrajectoriesToRunsString(trajectories)
+  }, trajectoriess)
+  return scenariosStrings.join("\n")
+}
+
+/** scenario might involve one or multiple runs hence cases */
+let scenarioTrajectoriesToRunsString = function(trajectories) {
+  if (trajectories.length === 1) {
+    return trajectoryToActionsString(trajectories[0])
+  }
+  let stringsArr = mapIndexed(function(i, traj) {
+    return "Run " + i + ": " + trajectoryToActionsString(traj)
+  }, trajectories)
+  return "\n" + stringsArr.join("\n")
+}
+
+let trajectoryToActionsString = function(trajectory) {
+  return toString(map(snd, trajectory.slice(0,-1)))
 }
 
 /**

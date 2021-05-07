@@ -1,5 +1,6 @@
 *.txt
 !License.txt
 *.csv
+!examples/tipping/data/synthetic/*.csv
 
 .idea/*

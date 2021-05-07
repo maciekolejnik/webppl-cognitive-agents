@@ -1,0 +1,8 @@
+#!/bin/bash
+
+echo "Generate five rounds data..."
+webppl examples/tipping/src/simulations.wppl --require . --require examples/tipping/ --require webppl-fs  -- --experiment 1 --log 1 --rounds 5 --reps 10
+echo "Generate ten rounds data..."
+webppl examples/tipping/src/simulations.wppl --require . --require examples/tipping/ --require webppl-fs  -- --experiment 1 --log 1 --rounds 10 --reps 10
+echo "Generate fifteen rounds data..."
+webppl examples/tipping/src/simulations.wppl --require . --require examples/tipping/ --require webppl-fs  -- --experiment 1 --log 1 --rounds 15 --reps 10

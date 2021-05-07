@@ -93,12 +93,14 @@ let testExperiment = function() {
     }
   }
 
-  let scenarios = [getScenario1()]
+  let getScenarios = function() {
+    return [getScenario1()]
+  }
 
   return {
     name: "testExperiment",
     desc: "Just a collection of random scenarios",
-    scenarios,
+    getScenarios,
     names,
     callbacks
   }
@@ -154,87 +156,155 @@ let randomSimulationsExperiment = function() {
     return abi
   }
 
-  let options = {
-    horizon: 30,
-    beliefRepresentation: 'dirichlet'
+  let getScenarios = function(params) {
+    let reps = params.reps || 10
+    return repeat(reps, function () {
+      let moneyCoeff = uniform(0, 1)
+      let goalCoeffs = [moneyCoeff, 1 - moneyCoeff]
+      let gaspScore = categorical({vs: [1, 3, 5, 7]})
+      let tippingNorm = categorical({vs: [5, 10, 15, 20, 25]})
+
+      let agents = [ben, getAbi(goalCoeffs)]
+
+      let name = "Goal coeffs: " + toString(goalCoeffs) + "; gaspScore: "
+        + gaspScore + "; tippingNorm: " + tippingNorm
+
+      let gameSpecificParams = {
+        tippingNorm,
+        gaspScores: [0, gaspScore]
+      }
+
+      let options = {
+        horizon: params.rounds * 2,
+        beliefRepresentation: 'dirichlet'
+      }
+
+      return {
+        name,
+        agents,
+        options,
+        gameSpecificParams
+      }
+    })
   }
 
-  let scenarios = repeat(10, function() {
-    let moneyCoeff = uniform(0,1)
-    let goalCoeffs = [moneyCoeff, 1 - moneyCoeff]
-    let gaspScore = categorical({vs: [1,3,5,7]})
-    let tippingNorm = categorical({vs: [5,10,15,20,25]})
-
-    let agents = [ben, getAbi(goalCoeffs)]
-
-    let name = "Goal coeffs: " + toString(goalCoeffs) + "; gaspScore: "
-    + gaspScore + "; tippingNorm: " + tippingNorm
-
-    let gameSpecificParams = {
-      tippingNorm,
-      gaspScores: [0, gaspScore]
-    }
-
+  let getParams = function() {
+    let roundsStr = assertDefined(argv.rounds,
+      "rounds must be specified; pass it as --rounds <5/10/15>")
+    let rounds = parseInt(roundsStr)
+    assert(rounds > 0, "rounds must be > 0; found: " + rounds)
+    let repsStr = argv.reps
+    let reps = function() {
+      if (isDefined(repsStr)) {
+        let reps = parseInt(repsStr)
+        assert(reps > 0, "reps must be > 0; found: " + reps)
+        return reps
+      }
+      return undefined
+    }()
     return {
-      name,
-      agents,
-      options,
-      gameSpecificParams
+      rounds,
+      reps
     }
-  })
+  }
+
+  let wrapUp = function(trajectoriess, scenarios) {
+    let scenariosAsDataFileStrings = mapIndexed(function(index, scenarioTrajectories) {
+      let scenarioTrajectory = scenarioTrajectories[0]
+      let tippingNorm = scenarios[index].gameSpecificParams.tippingNorm
+      let gaspScore = scenarios[index].gameSpecificParams.gaspScores[1]
+      let abiGoalCoeffs = scenarios[index].agents[1].params.goalCoeffs
+      let actions = map(snd, scenarioTrajectory).slice(0,-1)
+      assert(actions.length % 2 === 0,
+        "printDataFilesFromTrajectories: expected even number " +
+        "of actions; found: " + actions)
+      let rounds = mapN(function(i) {
+        return [actions[2*i], actions[2*i+1]]
+      }, actions.length / 2)
+      let roundsAsString = reduceL(function(acc, round) {
+        return acc + round[0] + ";" + round[1] + "\n"
+      }, "", rounds)
+      let result =
+        "% abi goal coeffs: " + toString(abiGoalCoeffs) + "\n" +
+        "(0,ben);(1,abi)\n\n" +
+        tippingNorm + ";0;" + gaspScore + "\n\n" +
+        "<start>\n" +
+        "% agents\n" +
+        "0;1\n" +
+        "%rounds\n" +
+        roundsAsString +
+        "<end>"
+      return result
+    }, trajectoriess)
+
+    map(display, scenariosAsDataFileStrings)
+
+    let rounds = scenarios[0].options.rounds
+
+    let dir = "examples/tipping/data/generated/" + rounds
+    fs.mkdirp(dir)
+
+    mapIndexed(function(index, scenarioAsDataFileString) {
+      let filename = dir + "/simulation" + index + ".csv"
+      fs.write(filename, scenarioAsDataFileString)
+    }, scenariosAsDataFileStrings)
+  }
 
   return {
     name: "randomSimulationsExperiment",
-    desc: "We randomly choose goal coeffs, gasp score and tipping norm" +
-      "and simulate ten rounds of tipping game. We do it 10 times.",
-    scenarios,
-    names
-    // ,callbacks
+    desc: "We randomly choose goal coeffs, gasp score and tipping norm " +
+      "and simulate N rounds of tipping game where N is " +
+      "provided by [--horizon N] (mandatory). We do it K times, where " +
+      "[--reps K] (optional, K defaults to 10). Running this experiment " +
+      "will create a subdirectory in 'data/generatedData' and all the " +
+      "generated data files will go there.",
+    getScenarios,
+    names,
+    getParams,
+    wrapUp
   }
 }()
 
 let experiments = [testExperiment, randomSimulationsExperiment]
+processCommandline(makeTippingCSMG, experiments)
 
-let printDataFilesFromTrajectories = function(trajectories, scenarios) {
-  let scenariosAsDataFileStrings = mapIndexed(function(index, scenarioTrajectories) {
-    let scenarioTrajectory = scenarioTrajectories[0]
-    let tippingNorm = scenarios[index].gameSpecificParams.tippingNorm
-    let gaspScore = scenarios[index].gameSpecificParams.gaspScores[1]
-    let abiGoalCoeffs = scenarios[index].agents[1].params.goalCoeffs
-    let actions = map(snd, scenarioTrajectory).slice(0,-1)
-    assert(actions.length % 2 === 0,
-      "printDataFilesFromTrajectories: expected even number " +
-      "of actions; found: " + actions)
-    let rounds = mapN(function(i) {
-      return [actions[2*i], actions[2*i+1]]
-    }, actions.length / 2)
-    let roundsAsString = reduceL(function(acc, round) {
-      return acc + round[0] + ";" + round[1] + "\n"
-    }, "", rounds)
-    let result =
-      "% abi goal coeffs: " + toString(abiGoalCoeffs) + "\n" +
-      "(0,ben);(1,abi)\n\n" +
-      tippingNorm + ";0;" + gaspScore + "\n\n" +
-      "<start>\n" +
-      "% agents\n" +
-      "0;1\n" +
-      "%rounds\n" +
-      roundsAsString +
-      "<end>"
-    return result
-  }, trajectories)
-
-  map(display, scenariosAsDataFileStrings)
-
-  mapIndexed(function(index, scenarioAsDataFileString) {
-    let filename = "examples/tipping/data/generatedData15r/simulation" + index + ".txt"
-    fs.write(filename, scenarioAsDataFileString)
-  }, scenariosAsDataFileStrings)
-
-}
-
-let trajectories = processCommandline(makeTippingCSMG, experiments)
-printDataFilesFromTrajectories(trajectories, randomSimulationsExperiment.scenarios)
+// let printDataFilesFromTrajectories = function(trajectories, scenarios) {
+//   let scenariosAsDataFileStrings = mapIndexed(function(index, scenarioTrajectories) {
+//     let scenarioTrajectory = scenarioTrajectories[0]
+//     let tippingNorm = scenarios[index].gameSpecificParams.tippingNorm
+//     let gaspScore = scenarios[index].gameSpecificParams.gaspScores[1]
+//     let abiGoalCoeffs = scenarios[index].agents[1].params.goalCoeffs
+//     let actions = map(snd, scenarioTrajectory).slice(0,-1)
+//     assert(actions.length % 2 === 0,
+//       "printDataFilesFromTrajectories: expected even number " +
+//       "of actions; found: " + actions)
+//     let rounds = mapN(function(i) {
+//       return [actions[2*i], actions[2*i+1]]
+//     }, actions.length / 2)
+//     let roundsAsString = reduceL(function(acc, round) {
+//       return acc + round[0] + ";" + round[1] + "\n"
+//     }, "", rounds)
+//     let result =
+//       "% abi goal coeffs: " + toString(abiGoalCoeffs) + "\n" +
+//       "(0,ben);(1,abi)\n\n" +
+//       tippingNorm + ";0;" + gaspScore + "\n\n" +
+//       "<start>\n" +
+//       "% agents\n" +
+//       "0;1\n" +
+//       "%rounds\n" +
+//       roundsAsString +
+//       "<end>"
+//     return result
+//   }, trajectories)
+//
+//   map(display, scenariosAsDataFileStrings)
+//
+//   mapIndexed(function(index, scenarioAsDataFileString) {
+//     let filename = "examples/tipping/data/generatedData15r/simulation" + index + ".txt"
+//     fs.write(filename, scenarioAsDataFileString)
+//   }, scenariosAsDataFileStrings)
+// }
+// printDataFilesFromTrajectories(trajectories, randomSimulationsExperiment.scenarios)
 
 
 

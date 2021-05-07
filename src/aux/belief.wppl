@@ -190,7 +190,7 @@ let conditionalUtility = function(rewards, cond, utilityFns) {
         let goalCoeffs = repeat(physicalNo, getConstantFn(1))
         return physicalUtilityFn(goalCoeffs, rewards.physical, index)
       }
-      let goalCoeffs = repeat(rewards.mental.length, getConstantFn(1))
+      let goalCoeffs = repeat(arrayConcat(rewards.mental).length, getConstantFn(1))
       return mentalUtilityFn(goalCoeffs, rewards.mental, index - physicalNo)
       // return rewards[index]
     }

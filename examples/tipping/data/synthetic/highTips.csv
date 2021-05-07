@@ -1,0 +1,25 @@
+% this file contains a (made up) record of tips given after receiving
+% given quality of service
+% the tips are high, characterised by tipping norm of roughly 20
+% the behaviour is not fully consistent as the agent gives tips of
+% various sizes depending on their mood etc
+
+(0,ben);(1,abi)
+
+10;4;4
+
+<start>
+% agents
+0; 1
+% rounds
+normal;20
+bad;10
+good;25
+good;30
+normal;15
+bad;5
+bad;10
+good;25
+normal;20
+normal;25
+<end>

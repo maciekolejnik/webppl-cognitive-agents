@@ -1,0 +1,14 @@
+#!/bin/bash
+
+FULLPATH="examples/tipping/results/$1"
+
+echo 'Inferring from lowTips.csv...' | tee $FULLPATH
+webppl examples/tipping/src/predicting.wppl --require . --require examples/tipping/ --require webppl-fs -- --data lowTips.csv --goalCoeffsSupport [[.5,.5]] --gaspScoreSupport [6] >> $FULLPATH
+
+echo 'Inferring from mediumTips.csv...' | tee -a $FULLPATH
+webppl examples/tipping/src/predicting.wppl --require . --require examples/tipping/ --require webppl-fs -- --data mediumTips.csv --goalCoeffsSupport [[.5,.5]] --gaspScoreSupport [6] >> $FULLPATH
+
+echo 'Inferring from highTips.csv...' | tee -a $FULLPATH
+webppl examples/tipping/src/predicting.wppl --require . --require examples/tipping/ --require webppl-fs -- --data highTips.csv --goalCoeffsSupport [[.5,.5]] --gaspScoreSupport [6] >> $FULLPATH
+
+echo "Finished. Results written to: $FULLPATH" | tee -a $FULLPATH

@@ -457,6 +457,8 @@ let makeCSMG = function (gameSetup, externalParams, observationsOpt) {
     "mentalUtilityFn(): dimension of goalCoeffs (" +
       toString(goalCoeffs) + ") doesn't match size of mentalRewards ("
     + toString(mentalRewards) + ")")
+    info("mentalUtilityFn(): goalCoeffs=" + toString(goalCoeffs) +
+      ", mentalRewards=" + toString(mentalRewards) + ", indexOpt=" + indexOpt)
     let flattenedMentalRewardUtilities =
       arrayConcat(map2(function(rewardUtilFn, rewardsArr) {
         return map(function(reward) {

@@ -17,7 +17,7 @@ let printTrusts = function(game, agents, state, names) {
     return names[agentID] + ":\n  trust: " + trust +
       "\n  trust estimation: " + trustEstimation
   }
-  display(mapIndexed(f, agents).join("\n"))
+  explain(mapIndexed(f, agents).join("\n"))
 }
 
 let callbacks = {
@@ -69,8 +69,8 @@ let names = ['alice','bob']
 /** Setup game structure */
 let gameSpecificParams = {
   endowments : {
-    'investor': 4,
-    'investee': 0
+    investor: 4,
+    investee: 0
   },
   k: 2
 }
@@ -160,12 +160,14 @@ let testExperiment = function() {
     return {name, agents, options, gameSpecificParams}
   }
 
-  let scenarios = [getScenarioBasic(), getScenarioWeird()]
+  let getScenarios = function() {
+    return [getScenarioBasic(), getScenarioWeird()]
+  }
 
   return {
     name: "testExperiment",
     desc: "random collection of test scenarios",
-    scenarios,
+    getScenarios,
     names,
     callbacks
   }
@@ -194,11 +196,13 @@ let varyTrustExperiment = function() {
     ["Very high trust", [1,4]]
   ]
 
-  let scenarios = map(function(config) {
-    return {
-      name: config[0]
-    }
-  }, configurations)
+  let getScenarios = function() {
+    return map(function(config) {
+      return {
+        name: config[0]
+      }
+    }, configurations)
+  }
 
   let run = function(params) {
     let reps = params.reps || 20
@@ -221,12 +225,15 @@ let varyTrustExperiment = function() {
 
     let averageTransfers = reduceL(function(acc, config) {
       let scenarios = getSetTrustScenarios(config[0], config[1])
+      display("Simulating configuration: " + config[0] + "...")
       let trajectories = simulateScenarios(
         scenarios, makeTrustCSMG, ['alice','bob'], callbacks)
+      critical(scenariosTrajectoriesToScenariosString(trajectories))
       let averages = map(computeAverageTransfers, trajectories)
       let avgInvest = listMean(map(fst, averages))
       let avgReturn = listMean(map(snd, averages))
-      let summary = [config[0], [avgInvest, avgReturn]]
+      let summary = [config[0], [avgInvest, avgReturn], trajectories]
+      // display("Configuration " + config[0] + " simulated.")
       return acc.concat([summary])
     }, [], configurations)
 
@@ -234,17 +241,23 @@ let varyTrustExperiment = function() {
       display(avgTransfers[0] + ": " + avgTransfers[1][0] + " on average " +
         "invested, " + avgTransfers[1][1] + " on average returned")
     }, [], averageTransfers)
+
+    return arrayConcat(map(function(avgTransfer) {
+      return avgTransfer[2]
+    }, averageTransfers))
   }
 
-  let getParams = function(argv) {
-    let repsStr = assertDefined(argv.reps, "varyTrustExperiment: " +
-      "getParams(): --reps parameter required, but not found!")
-    let reps = parseInt(repsStr)
-    assert(reps > 0, "varyTrustExperiment: getParams(): reps " +
-      "must be positive")
-    return {
-      reps
+  let getParams = function() {
+    if (isDefined(argv.reps)) {
+      let repsStr = argv.reps
+      let reps = parseInt(repsStr)
+      assert(reps > 0, "varyTrustExperiment: getParams(): reps " +
+        "must be positive")
+      return {
+        reps
+      }
     }
+    return {}
   }
 
   return {
@@ -260,7 +273,7 @@ let varyTrustExperiment = function() {
       "passed, it defaults to 20",
     run,
     getParams,
-    scenarios
+    getScenarios
   }
 }()
 
@@ -312,7 +325,9 @@ let conmanNoncognitiveExperiment = function() {
     display(map(snd, trajectory))
   }
 
-  let scenarios = [{name: "bob has a strategy, alice is uniform"}]
+  let getScenarios = function() {
+    return [{name: "bob has a strategy, alice is uniform"}]
+  }
 
   return {
     name: "conmanNoncognitiveExperiment",
@@ -320,7 +335,7 @@ let conmanNoncognitiveExperiment = function() {
       " when Bob is a (non-cognitive) con man, which means Bob tries to " +
       "trick Alice into trusting him and then keep a lot of money",
     run,
-    scenarios
+    getScenarios
   }
 }()
 
@@ -394,47 +409,25 @@ let conmanCognitiveExperiment = function() {
     return bob
   }
 
-  let scenarios = function() {
+  let getParams = function() {
+    if (isDefined(argv.reps)) {
+      let repsStr = argv.reps
+      let reps = parseInt(repsStr)
+      assert(reps > 0, "conmanCognitiveExperiment: getParams(): reps " +
+        "must be positive")
+      return {
+        reps
+      }
+    }
+    return {}
+  }
+
+  let getScenarios = function(params) {
     /** Now we check whether a fair agent can punish a con man who tries
      * to take advantage of them. H3 alternative */
-    let alice = getAlice([0.5,0.5],2,[1,1],0.75)
-    let bob = getBob(5, 0.5)
+    // let alice = getAlice([0.5,0.5],2,[1,1],0.75)
+    // let bob = getBob(5, 0.5)
 
-    // let aliceParams = generateParams([0.5,0,0.5], 100, 0.8, 2)
-    // let aliceInitialStateTmp =
-    //   generateInitialState(0, 2, 100, 0.8, 3)
-    // let aliceInitialState =
-    //   extend(aliceInitialStateTmp
-    //     ,
-    //     {
-    //       belief: arrayReplace(aliceInitialStateTmp.belief, 1, [1,1]),
-    //       mentalEstimations:
-    //         arrayReplace(aliceInitialStateTmp.mentalEstimations, 1, [Delta({v: 0.75})])
-    //     }
-    //   )
-    // let bobParams = generateParams([1,0], 100, 1, 5)
-    // let bobInitialStateTmp =
-    //   generateInitialState(1, 2, 100, 0.8, 1)
-    // let bobInitialState =
-    //   extend(bobInitialStateTmp
-    //     ,
-    //     {
-    //       belief: arrayReplace(bobInitialStateTmp.belief, 0, [1,10,1]),
-    //       mentalEstimations:
-    //         arrayReplace(bobInitialStateTmp.mentalEstimations, 0, [Delta({v: 0.5})])
-    //     }
-    //   )
-    // let alice = {
-    //   params: aliceParams,
-    //   initialState: aliceInitialState
-    // }
-    // let bob = {
-    //   params: bobParams,
-    //   initialState: bobInitialState
-    // }
-    // let agents = [alice, bob]
-    // let name = "H3 both cognitive"
-    // let scenario = { name, agents, options, gameSpecificParams}
     let randomScenario = function() {
       let moneyCoeff = uniform(0,1)
       let trustCoeff = 1 - moneyCoeff
@@ -458,8 +451,59 @@ let conmanCognitiveExperiment = function() {
       }
     }
 
-    return repeat(10, randomScenario)
-  }()
+    let reps = params.reps || 20
+    return repeat(reps, randomScenario)
+  }
+
+  /** this function will be called once all simulations are complete.
+   * it computes money that agents end up with for each scenario and
+   * averages over all scenarios
+   */
+  let wrapUp = function(trajectoriess) {
+    let investorEndowment = gameSpecificParams.endowments.investor
+    let investeeEndowment = gameSpecificParams.endowments.investee
+    let k = gameSpecificParams.k
+    let scenariosSummaries = map(function(scenarioTrajectories) {
+      let scenarioTrajectory = scenarioTrajectories[0]
+      let actions = map(snd, scenarioTrajectory.slice(0,-1))
+      let money = reduceL(function(acc, action) {
+        if (acc[0] % 2 === 0) {
+          /** this action in alice's */
+          let alice = acc[1][0] + investorEndowment - action
+          let bob = acc[1][1] + investeeEndowment + action * k
+          return [acc[0]+1, [alice, bob]]
+        }
+        /** this action is bob's */
+        let alice = acc[1][0] + action
+        let bob = acc[1][1] - action
+        return [acc[0] + 1, [alice,bob]]
+      }, [0,[0,0]], actions)[1]
+      return {
+        actions,
+        money
+      }
+    }, trajectoriess)
+    let scenarioSummariesStrings =
+      mapIndexed(function(i, scenarioSummary) {
+        return "Scenario " + i + ":\ntrace:" + toString(scenarioSummary.actions)
+         + "\nfinal monies: " + toString(scenarioSummary.money)
+      }, scenariosSummaries)
+    critical(stringInABox("Results of cognitive conman experiment:"))
+    critical(scenarioSummariesStrings.join("\n"))
+    let avgMoney = function(i, scenariosSummaries) {
+      /** filter scenarios of all zero transfers */
+      let filteredScenariosSummaries = filter(function(scenarioSummary) {
+        return !all(function(action) { return action === 0}, scenarioSummary.actions)
+      }, scenariosSummaries)
+      return listMean(map(function(scenarioSummary) {
+        return scenarioSummary.money[i]
+      }, filteredScenariosSummaries))
+    }
+    let avgAlice = avgMoney(0, scenariosSummaries)
+    let avgBob = avgMoney(1, scenariosSummaries)
+    critical("\nAlice's average money: " + avgAlice)
+    critical("Bob's average money: " + avgBob)
+  }
 
   return {
     name: "conmanCognitiveExperiment",
@@ -483,9 +527,11 @@ let conmanCognitiveExperiment = function() {
       "Note that the scenarios are randomised so the values printed " +
       "are just a representation and they won't be the same as the " +
       "values used for experiments",
-    scenarios,
+    getScenarios,
     callbacks,
-    names
+    names,
+    getParams,
+    wrapUp
   }
 }()
 
@@ -493,7 +539,6 @@ let conmanCognitiveExperiment = function() {
 let experiments = [testExperiment, varyTrustExperiment,
   conmanNoncognitiveExperiment, conmanCognitiveExperiment]
 
-processCommandline(makeTrustCSMG, experiments)
-
+let result = processCommandline(makeTrustCSMG, experiments)
 
 

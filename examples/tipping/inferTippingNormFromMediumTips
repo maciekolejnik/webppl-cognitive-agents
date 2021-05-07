@@ -1,0 +1,25 @@
+#!/bin/bash
+
+FULLPATH="examples/tipping/results/$1"
+
+counter=1
+while [ $counter -le 10 ]
+do
+  GASP=$((1 + $RANDOM % 7))
+  MONEY=$((1 + $RANDOM % 10))
+  GUILT=$((10 - $MONEY))
+  GASP_SUPPORT="[$GASP]"
+  GOALCOEFFS_SUPPORT="[[$MONEY/10,$GUILT/10]]"
+
+  echo "Fixing goalCoeffs to $GOALCOEFFS_SUPPORT and GASP to $GASP_SUPPORT..." | tee -a $FULLPATH
+  webppl examples/tipping/src/predicting.wppl --require . --require examples/tipping/ --require webppl-fs -- --data mediumTips.csv --goalCoeffsSupport $GOALCOEFFS_SUPPORT --gaspScoreSupport $GASP_SUPPORT --tippingNormSupport [5,7,9,11,15] >> $FULLPATH
+
+  ((counter++))
+done
+
+exit 1
+
+echo 'Fixing goal' | tee -a $FULLPATH
+webppl examples/tipping/src/predicting.wppl --require . --require examples/tipping/ --require webppl-fs -- --data mediumTips.csv --goalCoeffsSupport [[.5,.5]] --gaspScoreSupport [6] >> $FULLPATH
+
+echo "Finished. Results written to: $FULLPATH" | tee -a $FULLPATH
