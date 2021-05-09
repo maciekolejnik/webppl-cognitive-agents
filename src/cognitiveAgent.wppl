@@ -533,6 +533,8 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
   }
 
   let mentalState = function(state, mentalAttitudeIndex) {
+    assertDefined(state, "mentalState(): state undefined")
+    assertDefined(mentalAttitudeIndex, "mentalState(): mentalAttitudeIndex undefined")
     let belief = belief(state)
     return computeMentalState(state, belief, mentalAttitudeIndex)
   }

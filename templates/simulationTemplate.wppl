@@ -48,11 +48,13 @@ let testExperiment = function() {
 
   let scenario1 = {}
   let scenario2 = {}
-  let scenarios = [scenario1, scenario2]
+  let getScenarios = function() {
+    return [scenario1, scenario2]
+  }
   return {
     name: "testExperiment",
     desc: "A random collection of scenarios",
-    scenarios,
+    getScenarios,
     names,
     callbacks
   }
@@ -127,7 +129,7 @@ let getScenarios = function() {
       initialState: secondAgentInitialState
     }
     let agents = [firstAgent, secondAgent]
-    return {name, agents, options, gameSpecificParams}
+    return {name, agents, options: defaultOptions, gameSpecificParams}
   }
 
   return [getExampleScenario()]

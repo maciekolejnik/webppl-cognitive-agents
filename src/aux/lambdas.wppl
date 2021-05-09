@@ -17,10 +17,6 @@ let identity = function(x) {
   return x
 }
 
-let arrayIsEmpty = function(x) {
-  return x.length === 0
-}
-
 let getConstantFn = function(val) {
   return function(x) { return val }
 }

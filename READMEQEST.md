@@ -146,3 +146,28 @@ argument specifies how many files are in that directory.
 The results will hopefully match Table 2 from the paper.
 
 ## Bravery Game Experiments
+Bravery game experiments are arguably the most trivial of all and 
+consist of two simple experiments:
+
+1. The first experiment sets parameters of agents to reflect the 
+psychological game model, but varies beliefs of player 1 and investigates
+whether an equilibrium is reached. 
+To run, execute
+```
+webppl examples/bravery/src/simulations.wppl --require . --require examples/bravery -- --experiment 1 --log 1
+```
+The result will be in the form of three traces (for different values of 
+initial beliefs) - these have to be inspected manually. The paper makes
+a claim that an equilibrium is reached regardless of initial belief -
+this will be confirmed if the traces are dominated by *bold* actions
+from some point onwards. 
+
+2. The second experiment studies how p1's lookahead affects the total
+reward in the game. To run it, execute:
+
+```
+webppl examples/bravery/src/simulations.wppl --require . --require examples/bravery -- --experiment 2 --runs 5 --log 1
+```
+This prints total rewards of players accumulated over 10 rounds for three
+different values of lookahead (1,3,5), averaged over five runs. The results
+should roughly match the values in Table 4. 

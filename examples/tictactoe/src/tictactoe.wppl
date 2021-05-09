@@ -283,7 +283,7 @@ let makeTicTacToe = function (gameParams) {
     let isInitial = function(state) {
       let fns = {
         'history': function () {
-          return isEmpty(state)
+          return arrayIsEmpty(state)
         },
         'efficient': function () {
           return all(isUndefined, state)

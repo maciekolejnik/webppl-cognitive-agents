@@ -5,7 +5,7 @@
  */
 
 /* Setup game structure */
-let options = {
+let defaultOptions = {
   horizon: 20,
   beliefRepresentation: 'dirichlet'
 }
@@ -14,36 +14,34 @@ let options = {
  * callback functions can be defined here
  */
 let printBeliefs = function(game, agents, state, names) {
-  display("+----------- agents' state --------------+")
+  explain("+----------- agents' state --------------+")
   mapIndexed(function(agentID, agent) {
     let belief = agent.belief
     let indBelief = retrieveBeliefOver(otherAgentID(agentID), belief(state))
     let goalCoeffsExpectation = goalCoeffsExpectation(indBelief, 3)
-    display(names[agentID] + "'s belief (expectations): " +
+    explain(names[agentID] + "'s belief (expectations): " +
       toString(goalCoeffsExpectation))
   }, agents)
   let turn = game.API.turn
   if (turn(state) === 1) {
     let p2 = agents[1]
     let ms = p2.mentalState
-    let pride = ms(state)[0]
-    display("p2's pride: " + pride)
+    let pride = ms(state,0)
+    explain("p2's pride: " + pride)
     let p1 = agents[0]
     let mr = p1.mentalRewards
     let prideEst = mr(state)[0]
-    display("p1's pride estimation: " + prideEst)
+    explain("p1's pride estimation: " + prideEst)
   }
-  display("+-----------      end      --------------+")
+  explain("+-----------      end      --------------+")
 }
-
 let callbacks = {
   periodic: printBeliefs,
 }
 
-let getScenarios = function() {
-  /**
-   example scenario
-   */
+let names = ["p1","p2"]
+
+let testExperiment = function() {
   let getTestScenario = function() {
     let name = "test scenario. checking if everything works"
     let firstAgentParams = generateParams([0.3,0.3,0.4], 100, 0.9, 2)
@@ -75,16 +73,26 @@ let getScenarios = function() {
       initialState: secondAgentInitialState
     }
     let agents = [firstAgent, secondAgent]
-    return {name, agents, options}
+    return {name, agents, options: defaultOptions}
   }
 
-  return [getTestScenario()]
-}
+  let getScenarios = function() {
+    return [getTestScenario()]
+  }
 
-let getPaperScenarios = function() {
+  return {
+    name: "testExperiment",
+    desc: "Collection of random scenarios testing various things",
+    getScenarios,
+    names,
+    callbacks
+  }
+}()
+
+let equilibriumExperiment = function() {
   let setups = [
     {
-      name: "setting inspired by paper; accurate initial beliefs",
+      name: "accurate initial beliefs",
       p1: {
         goalCoeffs: [0.2,0.35,0.45],
         belief: [2,1,2]
@@ -95,7 +103,7 @@ let getPaperScenarios = function() {
       }
     },
     {
-      name: "setting inspired by paper; uniform initial beliefs",
+      name: "uniform initial beliefs",
       p1: {
         goalCoeffs: [0.2,0.35,0.45],
         belief: [1,1,1]
@@ -106,7 +114,7 @@ let getPaperScenarios = function() {
       }
     },
     {
-      name: "setting inspired by paper; inaccurate initial beliefs",
+      name: "inaccurate initial beliefs",
       p1: {
         goalCoeffs: [0.2,0.35,0.45],
         belief: [1,3,1]
@@ -117,51 +125,152 @@ let getPaperScenarios = function() {
       }
     }
   ]
-  // let name = "scenario inspired by the setting from GPS paper"
+
+  /** for now this doesn't really matter */
   let gameSpecificParams = {
     bias: 1
   }
 
-  let scenarios = map(function(setup) {
-    let name = setup.name
-    let p1Params = generateParams(setup.p1.goalCoeffs, 30, 1, 1)
-    let p1InitialState = {
-      belief: [undefined, setup.p1.belief],
-      mentalEstimations: [undefined, [Delta({v: 0})]],
-      metaParamsEstimations: {
-        alpha: [undefined, Categorical({vs: [10]})],
-        lookAhead: [undefined, Categorical({vs: [2]})],
-        discountFactor: [undefined, Categorical({vs: [1]})]
+  let getScenarios = function() {
+    let scenarios = map(function (setup) {
+      let name = setup.name
+      let p1Params = generateParams(setup.p1.goalCoeffs, 30, 1, 1)
+      let p1InitialState = {
+        belief: [undefined, setup.p1.belief],
+        mentalEstimations: [undefined, [Delta({v: 0})]],
+        metaParamsEstimations: {
+          alpha: [undefined, Categorical({vs: [10]})],
+          lookAhead: [undefined, Categorical({vs: [2]})],
+          discountFactor: [undefined, Categorical({vs: [1]})]
+        }
       }
-    }
-    let p1 = {
-      params: p1Params,
-      initialState: p1InitialState
-    }
-    let p2Params = generateParams(setup.p2.goalCoeffs, 10, 1, 2)
-    let p2InitialState = {
-      belief: [setup.p2.belief, undefined],
-      mentalEstimations: [[Delta({v: "irrelevant"})], undefined], // an array of mental estimations (where each estimation is a distribution)
-      metaParamsEstimations: {
-        alpha: [Categorical({vs: [10]}), undefined],
-        lookAhead: [Categorical({vs: [1]}), undefined],
-        discountFactor: [Categorical({vs: [1]}), undefined]
+      let p1 = {
+        params: p1Params,
+        initialState: p1InitialState
       }
-    }
-    let p2 = {
-      params: p2Params,
-      initialState: p2InitialState
-    }
-    let agents = [p1, p2]
-    return {name, agents, options, gameSpecificParams}
-  }, setups)
-  return scenarios
-}
+      let p2Params = generateParams(setup.p2.goalCoeffs, 10, 1, 2)
+      let p2InitialState = {
+        belief: [setup.p2.belief, undefined],
+        mentalEstimations: [[Delta({v: "irrelevant"})], undefined], // an array of mental estimations (where each estimation is a distribution)
+        metaParamsEstimations: {
+          alpha: [Categorical({vs: [10]}), undefined],
+          lookAhead: [Categorical({vs: [1]}), undefined],
+          discountFactor: [Categorical({vs: [1]}), undefined]
+        }
+      }
+      let p2 = {
+        params: p2Params,
+        initialState: p2InitialState
+      }
+      let agents = [p1, p2]
+      return {name, agents, options: defaultOptions, gameSpecificParams}
+    }, setups)
+    return scenarios
+  }
 
-let getVaryLookaheadScenarios = function() {
-  let options = {
-    horizon: 20,
-    beliefRepresentation: 'dirichlet'
+  let wrapUp = function(trajectoriess, scenarios) {
+    let summaries = mapIndexed(function(i, trajectories) {
+      let trajectory = trajectories[0]
+      let actions = map(snd, trajectory.slice(0,-1))
+      let name = scenarios[i].name
+      return "Scenario " + name + ":\n" + toString(actions)
+    }, trajectoriess)
+    return summaries.join("\n\n")
+  }
+
+  return {
+    name: "equilibriumExperiment",
+    desc: "This experiment investigates whether equilibrium arises " +
+      "in bravery game",
+    getScenarios,
+    names,
+    wrapUp,
+    callbacks
+  }
+}()
+
+
+// let getPaperScenarios = function() {
+//   let setups = [
+//     {
+//       name: "setting inspired by paper; accurate initial beliefs",
+//       p1: {
+//         goalCoeffs: [0.2,0.35,0.45],
+//         belief: [2,1,2]
+//       },
+//       p2: {
+//         goalCoeffs: [0.4,0.2,0.4],
+//         belief: [1,1.5,2]
+//       }
+//     },
+//     {
+//       name: "setting inspired by paper; uniform initial beliefs",
+//       p1: {
+//         goalCoeffs: [0.2,0.35,0.45],
+//         belief: [1,1,1]
+//       },
+//       p2: {
+//         goalCoeffs: [0.4,0.2,0.4],
+//         belief: [1,1,1]
+//       }
+//     },
+//     {
+//       name: "setting inspired by paper; inaccurate initial beliefs",
+//       p1: {
+//         goalCoeffs: [0.2,0.35,0.45],
+//         belief: [1,3,1]
+//       },
+//       p2: {
+//         goalCoeffs: [0.4,0.2,0.4],
+//         belief: [3,2,1]
+//       }
+//     }
+//   ]
+//   // let name = "scenario inspired by the setting from GPS paper"
+//   let gameSpecificParams = {
+//     bias: 1
+//   }
+//
+//   let scenarios = map(function(setup) {
+//     let name = setup.name
+//     let p1Params = generateParams(setup.p1.goalCoeffs, 30, 1, 1)
+//     let p1InitialState = {
+//       belief: [undefined, setup.p1.belief],
+//       mentalEstimations: [undefined, [Delta({v: 0})]],
+//       metaParamsEstimations: {
+//         alpha: [undefined, Categorical({vs: [10]})],
+//         lookAhead: [undefined, Categorical({vs: [2]})],
+//         discountFactor: [undefined, Categorical({vs: [1]})]
+//       }
+//     }
+//     let p1 = {
+//       params: p1Params,
+//       initialState: p1InitialState
+//     }
+//     let p2Params = generateParams(setup.p2.goalCoeffs, 10, 1, 2)
+//     let p2InitialState = {
+//       belief: [setup.p2.belief, undefined],
+//       mentalEstimations: [[Delta({v: "irrelevant"})], undefined], // an array of mental estimations (where each estimation is a distribution)
+//       metaParamsEstimations: {
+//         alpha: [Categorical({vs: [10]}), undefined],
+//         lookAhead: [Categorical({vs: [1]}), undefined],
+//         discountFactor: [Categorical({vs: [1]}), undefined]
+//       }
+//     }
+//     let p2 = {
+//       params: p2Params,
+//       initialState: p2InitialState
+//     }
+//     let agents = [p1, p2]
+//     return {name, agents, options, gameSpecificParams}
+//   }, setups)
+//   return scenarios
+// }
+
+
+let varyLookaheadExperiment = function() {
+  let gameSpecificParams = {
+    bias: 1
   }
   let goalCoeffs = [0.35,0.6,0.05]
   let setups = [
@@ -202,67 +311,215 @@ let getVaryLookaheadScenarios = function() {
       }
     }
   ]
-  // let name = "scenario inspired by the setting from GPS paper"
-  let gameSpecificParams = {
-    bias: 1
+
+  let getScenarios = function() {
+    let scenarios = map(function (setup) {
+      let name = setup.name
+      let p1Params = generateParams(setup.p1.goalCoeffs, 30, 1, setup.p1.lookAhead)
+      let p1InitialState = {
+        belief: [undefined, setup.p1.belief],
+        mentalEstimations: [undefined, [Delta({v: 0})]],
+        metaParamsEstimations: {
+          alpha: [undefined, Categorical({vs: [10]})],
+          lookAhead: [undefined, Categorical({vs: [2]})],
+          discountFactor: [undefined, Categorical({vs: [1]})]
+        }
+      }
+      let p1 = {
+        params: p1Params,
+        initialState: p1InitialState
+      }
+      let p2Params = generateParams(setup.p2.goalCoeffs, 10, 1, 2)
+      let p2InitialState = {
+        belief: [setup.p2.belief, undefined],
+        mentalEstimations: [[Delta({v: "irrelevant"})], undefined], // an array of mental estimations (where each estimation is a distribution)
+        metaParamsEstimations: {
+          alpha: [Categorical({vs: [10]}), undefined],
+          lookAhead: [Categorical({vs: [1]}), undefined],
+          discountFactor: [Categorical({vs: [1]}), undefined]
+        }
+      }
+      let p2 = {
+        params: p2Params,
+        initialState: p2InitialState
+      }
+      let agents = [p1, p2]
+      return {name, agents, options: defaultOptions, gameSpecificParams}
+    }, setups)
+    return scenarios
   }
 
-  let scenarios = map(function(setup) {
-    let name = setup.name
-    let p1Params = generateParams(setup.p1.goalCoeffs, 30, 1, setup.p1.lookAhead)
-    let p1InitialState = {
-      belief: [undefined, setup.p1.belief],
-      mentalEstimations: [undefined, [Delta({v: 0})]],
-      metaParamsEstimations: {
-        alpha: [undefined, Categorical({vs: [10]})],
-        lookAhead: [undefined, Categorical({vs: [2]})],
-        discountFactor: [undefined, Categorical({vs: [1]})]
-      }
+  let wrapUp = function(trajectoriess, scenarios) {
+    let averagess = map(function(trajectories) {
+      /** each scenario is run X times */
+      let rewardPairs = map(function(trajectory) {
+        return trajectory[trajectory.length - 1][1]
+      }, trajectories)
+      let pairOfRewards = [map(fst, rewardPairs), map(snd, rewardPairs)]
+      let averages = map(listMean, pairOfRewards)
+      return averages
+    }, trajectoriess)
+    let runs = trajectoriess[0].length
+    let runsStr = "\nAverages are over " + runs + " runs and in the " +
+      "format [p1's rewards, p2's rewards]"
+    let averagesStrings = mapIndexed(function(i, averages) {
+      let lookAhead = scenarios[i].agents[0].params.metaParams.lookAhead
+      return "Averages for lookahead " + lookAhead + ": " + toString(averages)
+    }, averagess)
+    return averagesStrings.join("\n") + runsStr
+  }
+
+  return {
+    name: "varyLookaheadExperiment",
+    desc: "This experiment investigates how lookahead affects outcomes. " +
+      "Specify number of runs with --runs <int>",
+    getScenarios,
+    names,
+    callbacks,
+    wrapUp
+  }
+}()
+
+let experiments = [testExperiment, equilibriumExperiment, varyLookaheadExperiment]
+let outcome = processCommandline(makeBraveryGame, experiments)
+
+/** outcome can be
+ * - an empty array
+ * - an array of results (strings) from experiments
+ * - an object specifying experimentID (+ optionally scenario ID)
+ *  and its result
+ */
+let experimentID = outcome.experimentID
+if (isDefined(experimentID)) {
+  display("Experiment " + experimentID + " was run.")
+  let scenarioID = outcome.scenarioID
+  if (isDefined(scenarioID)) {
+    display("Scenario " + scenarioID + " was run.")
+  }
+  let result = outcome.result
+  if (isDefined(result)) {
+    display("Here are the results:")
+    display(result)
+  }
+} else if (!arrayIsEmpty(outcome)) {
+  display("All experiments were run. Here are the results:")
+  mapIndexed(function (experimentID, experiment) {
+    display("Experiment " + experimentID + ":")
+    if (isDefined(experiment.result)) {
+      display(experiment.result)
+    } else {
+      display("<no results>")
     }
-    let p1 = {
-      params: p1Params,
-      initialState: p1InitialState
-    }
-    let p2Params = generateParams(setup.p2.goalCoeffs, 10, 1, 2)
-    let p2InitialState = {
-      belief: [setup.p2.belief, undefined],
-      mentalEstimations: [[Delta({v: "irrelevant"})], undefined], // an array of mental estimations (where each estimation is a distribution)
-      metaParamsEstimations: {
-        alpha: [Categorical({vs: [10]}), undefined],
-        lookAhead: [Categorical({vs: [1]}), undefined],
-        discountFactor: [Categorical({vs: [1]}), undefined]
-      }
-    }
-    let p2 = {
-      params: p2Params,
-      initialState: p2InitialState
-    }
-    let agents = [p1, p2]
-    return {name, agents, options, gameSpecificParams}
-  }, setups)
-  return scenarios
+  }, outcome)
+} else {
+  display("No experiments were run")
 }
 
-/** Run simulations */
-let scenarios = getScenarios().slice(1)
-// simulateScenarios(scenarios, makeBraveryGame, ["p1", "p2"], callbacks)
-// simulateScenarios(getPaperScenarios(), makeBraveryGame, ["p1", "p2"], callbacks)
-let rewards = mapN(function(i) {
-  let trajectories =
-    simulateScenarios(getVaryLookaheadScenarios(), makeBraveryGame, ["p1", "p2"], callbacks)
-  return map(function(trajectory) {
-    return trajectory[trajectory.length - 1][1]
-  }, trajectories)
-}, 5)
-display(toString(rewards))
-
-let rewardsSum = reduceL(function(acc, rews) {
-  return map2(function(p1, p2) {
-    return arrayAddElementWise(p1,p2)
-  }, acc, rews)
-}, [[0,0],[0,0],[0,0]], rewards)
-let rewardsAvg = map(function(pair) {
-  return map(function (x) { return x / 5 }, pair)
-}, rewardsSum)
-
-display(rewardsAvg)
+// let getVaryLookaheadScenarios = function() {
+//   // let options = {
+//   //   horizon: 20,
+//   //   beliefRepresentation: 'dirichlet'
+//   // }
+//   let goalCoeffs = [0.35,0.6,0.05]
+//   let setups = [
+//     {
+//       name: "small lookahead",
+//       p1: {
+//         goalCoeffs,
+//         belief: [2,1,2],
+//         lookAhead: 1
+//       },
+//       p2: {
+//         goalCoeffs: [0.4,0.2,0.4],
+//         belief: [1,1.5,2]
+//       }
+//     },
+//     {
+//       name: "bigger lookahead",
+//       p1: {
+//         goalCoeffs,
+//         belief: [2,1,2],
+//         lookAhead: 3
+//       },
+//       p2: {
+//         goalCoeffs: [0.4,0.2,0.4],
+//         belief: [1,1.5,2]
+//       }
+//     },
+//     {
+//       name: "big lookahead",
+//       p1: {
+//         goalCoeffs,
+//         belief: [2,1,2],
+//         lookAhead: 5
+//       },
+//       p2: {
+//         goalCoeffs: [0.4,0.2,0.4],
+//         belief: [1,1.5,2]
+//       }
+//     }
+//   ]
+//   // let name = "scenario inspired by the setting from GPS paper"
+//   let gameSpecificParams = {
+//     bias: 1
+//   }
+//
+//   let scenarios = map(function(setup) {
+//     let name = setup.name
+//     let p1Params = generateParams(setup.p1.goalCoeffs, 30, 1, setup.p1.lookAhead)
+//     let p1InitialState = {
+//       belief: [undefined, setup.p1.belief],
+//       mentalEstimations: [undefined, [Delta({v: 0})]],
+//       metaParamsEstimations: {
+//         alpha: [undefined, Categorical({vs: [10]})],
+//         lookAhead: [undefined, Categorical({vs: [2]})],
+//         discountFactor: [undefined, Categorical({vs: [1]})]
+//       }
+//     }
+//     let p1 = {
+//       params: p1Params,
+//       initialState: p1InitialState
+//     }
+//     let p2Params = generateParams(setup.p2.goalCoeffs, 10, 1, 2)
+//     let p2InitialState = {
+//       belief: [setup.p2.belief, undefined],
+//       mentalEstimations: [[Delta({v: "irrelevant"})], undefined], // an array of mental estimations (where each estimation is a distribution)
+//       metaParamsEstimations: {
+//         alpha: [Categorical({vs: [10]}), undefined],
+//         lookAhead: [Categorical({vs: [1]}), undefined],
+//         discountFactor: [Categorical({vs: [1]}), undefined]
+//       }
+//     }
+//     let p2 = {
+//       params: p2Params,
+//       initialState: p2InitialState
+//     }
+//     let agents = [p1, p2]
+//     return {name, agents, options, gameSpecificParams}
+//   }, setups)
+//   return scenarios
+// }
+//
+// /** Run simulations */
+// let scenarios = getScenarios().slice(1)
+// // simulateScenarios(scenarios, makeBraveryGame, ["p1", "p2"], callbacks)
+// // simulateScenarios(getPaperScenarios(), makeBraveryGame, ["p1", "p2"], callbacks)
+// let rewards = mapN(function(i) {
+//   let trajectories =
+//     simulateScenarios(getVaryLookaheadScenarios(), makeBraveryGame, ["p1", "p2"], callbacks)
+//   return map(function(trajectory) {
+//     return trajectory[trajectory.length - 1][1]
+//   }, trajectories)
+// }, 5)
+// display(toString(rewards))
+//
+// let rewardsSum = reduceL(function(acc, rews) {
+//   return map2(function(p1, p2) {
+//     return arrayAddElementWise(p1,p2)
+//   }, acc, rews)
+// }, [[0,0],[0,0],[0,0]], rewards)
+// let rewardsAvg = map(function(pair) {
+//   return map(function (x) { return x / 5 }, pair)
+// }, rewardsSum)
+//
+// display(rewardsAvg)

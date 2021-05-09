@@ -58,7 +58,7 @@ let arrayAddElementWise = function(arr1, arr2) {
     }, l)
 }
 
-let isEmpty = function(array) {
+let arrayIsEmpty = function(array) {
     assertIsArray(array, ANY_TYPE, -1,
       "isEmpty called on " + array + "; expected: array")
     return array.length === 0

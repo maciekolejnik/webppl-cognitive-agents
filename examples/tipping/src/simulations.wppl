@@ -261,12 +261,14 @@ let randomSimulationsExperiment = function() {
     getScenarios,
     names,
     getParams,
-    wrapUp
+    wrapUp,
+    callbacks
   }
 }()
 
 let experiments = [testExperiment, randomSimulationsExperiment]
-processCommandline(makeTippingCSMG, experiments)
+let outcome = processCommandline(makeTippingCSMG, experiments)
+
 
 // let printDataFilesFromTrajectories = function(trajectories, scenarios) {
 //   let scenariosAsDataFileStrings = mapIndexed(function(index, scenarioTrajectories) {

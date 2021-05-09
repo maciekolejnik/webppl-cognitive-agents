@@ -932,7 +932,7 @@ let tests = function() {
             return state.returns[0]
           }
           let isInitial = function (state) {
-            return isEmpty(state.investments) && isEmpty(state.returns)
+            return arrayIsEmpty(state.investments) && arrayIsEmpty(state.returns)
           }
           let turn = function (state) {
             return state.turn

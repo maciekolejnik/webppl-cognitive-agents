@@ -246,8 +246,8 @@ let makeBraveryGame = function(gameSpecificParams) {
         assert(prideEstimate >= -1 && prideEstimate <= 1,
           "updatePrideEstimation(): computed prideEstimate=" +
           prideEstimate + "; expected in [-1,1]")
-        display("updatePrideEstimation(): pride estimate at state "
-          + stateToString(state) + ": " + prideEstimate)
+        // display("updatePrideEstimation(): pride estimate at state "
+        //   + stateToString(state) + ": " + prideEstimate)
         return prideEstimate
       }
 
