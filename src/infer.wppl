@@ -108,9 +108,9 @@ let getDataFilename = function(path) {
   if (filename === undefined) {
     error("Please specify a data file name using -- --data <filename> command line option")
   }
-  if (filename.includes("/")) {
-    return filename
-  }
+  // if (filename.includes("/")) {
+  //   return filename
+  // }
   return ((path.slice(-1) === "/") ? path : path + "/") + filename
 }
 

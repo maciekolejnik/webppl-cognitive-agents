@@ -28,7 +28,8 @@ command:
 webppl examples/trustgame/src/simulations.wppl --require . --require examples/trustgame -- --experiment 1 --log 1
 ```
 (I included ```--log 1``` as otherwise A LOT of output is produced)
-This might take a few minutes as it simulates the execution twenty times
+This might take 10 minutes or so as it simulates the execution twenty 
+times
 for each belief configuration and there are five different belief 
 configurations. In the unlikely scenario that this takes too long to
 run, passing ```--reps 10``` (or substitute 10 with an even smaller 
@@ -37,7 +38,7 @@ to 10.
 
 The tool prints traces for each simulation, followed by average
 investments and returns for each configurations. The hope is that
-the averages will match Fig. 4 from the paper. (TODO: will it?)
+the averages will match Fig. 4 from the paper. (TODO: will?)
 
 2. The second experiment is about conman behaviour. To run it, execute
 ```
@@ -47,7 +48,7 @@ The tool will print traces from twenty (but ```--reps <int>``` can be
 passed to change that number) simulations along with the average 
 income of Alice and Bob ('all 0' traces are ignored for the purposes
 of computing averages).
-TODO: Exxec time
+This again takes 5-10 minutes to run.
 The key observation to make is that Bob's strategy is indeed quite
 sophisticated - he cooperates initially, but he always keeps all
 the money in the last round. He sometimes (hopefully that will be the
