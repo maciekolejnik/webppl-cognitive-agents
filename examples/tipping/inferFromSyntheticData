@@ -1,5 +1,7 @@
 #!/bin/bash
 
+mkdir -p examples/tipping/results
+
 FULLPATH="examples/tipping/results/$1"
 
 echo 'Inferring from lowTips.csv...' | tee $FULLPATH
