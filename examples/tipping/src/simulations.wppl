@@ -21,9 +21,9 @@ let printGuilt = function(game, agents, state, names) {
   if (turn(state) === 0) {
     let tipper = agents[1]
     let mentalState = tipper.mentalState
-    let guilt = mentalState(state)[0]
+    let guilt = mentalState(state,0)
     let stateToString = game.API.stateToString
-    display(names[1] + "'s guilt at state " + stateToString(state) + ": " + guilt)
+    explain(names[1] + "'s guilt at state " + stateToString(state) + ": " + guilt)
   }
 }
 
@@ -237,7 +237,7 @@ let randomSimulationsExperiment = function() {
       return result
     }, trajectoriess)
 
-    map(display, scenariosAsDataFileStrings)
+    // map(display, scenariosAsDataFileStrings)
 
     let rounds = scenarios[0].options.rounds
 

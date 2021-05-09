@@ -102,6 +102,7 @@ To perform this experiment, execute:
 ```
 bash examples/tipping/inferTippingNormFromMediumTips syntheticInferTippingNorm.txt
 ```
+(It may take up to 10 minutes)
 This script randomises Abi's goal coefficients and her GASP score ten 
 times and infers posterior on tipping norm. A more accurate prior is used 
 since only one type of data is considered. Hopefully, the posteriors
