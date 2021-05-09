@@ -17,8 +17,8 @@ echo "Writing to $FULLPATH" | tee $FULLPATH
 i=0
 until [ $i -gt $UPPER_BOUND ]
 do
-  dataFile="examples/tipping/data/generated/$ROUNDS/simulation$i.csv"
-  echo "\n\nInferring from $dataFile..." | tee -a $FULLPATH
+  dataFile="generated/$ROUNDS/simulation$i.csv"
+  echo "Inferring from $dataFile..." | tee -a $FULLPATH
   webppl examples/tipping/src/predicting.wppl --require . --require examples/tipping/ --require webppl-fs -- --data $dataFile >> $FULLPATH
 
   ((i++))
