@@ -239,7 +239,7 @@ let randomSimulationsExperiment = function() {
 
     // map(display, scenariosAsDataFileStrings)
 
-    let rounds = scenarios[0].options.rounds
+    let rounds = scenarios[0].options.horizon / 2
 
     let dir = "examples/tipping/data/generated/" + rounds
     fs.mkdirp(dir)
