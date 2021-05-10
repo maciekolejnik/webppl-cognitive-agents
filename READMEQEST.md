@@ -12,7 +12,7 @@ same directory in which this README file is located.
 simulations. To suppress this, append ```--log 1``` to the command
 - I prepared and tested the VM image on a 2016 MBP running macOS Big
 Sur (Version 11.1), with 8GB of RAM and 2.9 GHz Dual-Core Inter Core 
-i5 processor.  
+i5 processor.
 
 ## Trust Game Experiments
 Our trust game case study involves three hypotheses, first of which 
@@ -44,7 +44,7 @@ Disclaimer: I'll be honest, I have discovered a small bug in the
 implementation of Trust Game (state rewards were assigned wrongly)
 after submitting the paper. This doesn't affect the simulations 
 massively, but might affect them enough that the results of this 
-experiment will be somewhat different.  
+experiment will be somewhat different.
 
 2. The second experiment is about conman behaviour. To run it, execute
 ```
