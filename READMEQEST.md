@@ -38,7 +38,13 @@ to 10.
 
 The tool prints traces for each simulation, followed by average
 investments and returns for each configurations. The hope is that
-the averages will match Fig. 4 from the paper. (TODO: will?)
+the averages will match Fig. 4 from the paper.
+
+Disclaimer: I'll be honest, I have discovered a small bug in the 
+implementation of Trust Game (state rewards were assigned wrongly)
+after submitting the paper. This doesn't affect the simulations 
+massively, but might affect them enough that the results of this 
+experiment will be somewhat different.  
 
 2. The second experiment is about conman behaviour. To run it, execute
 ```
@@ -48,7 +54,7 @@ The tool will print traces from twenty (but ```--reps <int>``` can be
 passed to change that number) simulations along with the average 
 income of Alice and Bob ('all 0' traces are ignored for the purposes
 of computing averages).
-This again takes 5-10 minutes to run.
+This again takes 5-10 minutes to run (and prints plenty of cache info)
 The key observation to make is that Bob's strategy is indeed quite
 sophisticated - he cooperates initially, but he always keeps all
 the money in the last round. He sometimes (hopefully that will be the
@@ -125,7 +131,9 @@ bash examples/tipping/inferFromGeneratedData inferFromGenerated10rounds.txt 10 1
 bash examples/tipping/inferFromGeneratedData inferFromGenerated15rounds.txt 15 10
 ```
 
-This will likely take a while, possibly more than 10 minutes.
+This will likely take a while, especially the last command (1-2 hours).
+Each command processes ten files and prints its progress to the user which
+should give one an idea of how long exactly it should take.
 It will save the results of inference to the above files and it is important
 to use these exact filenames as they are hardcoded in the evaluation script
 (see below, it's not an ideal solution but it works...). 
