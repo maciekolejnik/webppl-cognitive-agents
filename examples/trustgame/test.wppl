@@ -1,5 +1,5 @@
 /** To run
- $ webppl examples/trustgame/integration.wppl --require . --require examples/trustgame
+ $ webppl examples/trustgame/test.wppl --require . --require examples/trustgame
  from the top level directory
  */
 
@@ -13,23 +13,16 @@ let testTrustDynamics = function() {
     k: 2
   }
 
+  let game = makeTrustCSMG(gameSpecificParams)
+
   let getState = function(actions) {
     return reduceL(function(state, action) {
       return sample(transitionFn(state, action))
     }, game.initialState, actions)
   }
 
-  let game = makeTrustCSMG(gameSpecificParams)
-
   let updateTrustEstimation = game.mentalStateDynamics.estimationHeuristicArr[0]
   let transitionFn = game.transitionFn
-
-  let state = game.initialState
-  let state0 = sample(transitionFn(state, 0))
-  let state1 = sample(transitionFn(state, 1))
-  let state2 = sample(transitionFn(state, 2))
-  let state3 = sample(transitionFn(state, 3))
-  let state4 = sample(transitionFn(state, 4))
 
   /** First suppose trust is low */
 
@@ -57,6 +50,14 @@ let testTrustDynamics = function() {
     " high investment (4)",
     sucMsgTurstDynamics + "initial: 0.8; low investment (1) resulted " +
     "in lower trust (" + trustHigh1 + ") than high investment (4) - " + trustHigh4)
+
+  display(updateTrustEstimation(0.45, 0,1,getState([0])))
+  display(updateTrustEstimation(0.36, 0,1,getState([0,0,0])))
+
+
+  display(updateTrustEstimation(0.36, 0,1,getState([1])))
+  display(updateTrustEstimation(0.36, 0,1,getState([2])))
+  display(updateTrustEstimation(0.36, 0,1,getState([3])))
 }
 
 let testTrustDynamicsConman = function() {
@@ -86,4 +87,4 @@ let testTrustDynamicsConman = function() {
 
 }
 
-testTrustDynamicsConman()
+testTrustDynamics()

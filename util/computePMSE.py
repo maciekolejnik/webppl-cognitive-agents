@@ -48,7 +48,7 @@ for i in range(files_no):
 
 # PHASE 2
 posterior = []
-with open("examples/tipping/results/inferFromGenerated5rounds.txt", "r") as f:
+with open("examples/tipping/results/inferFromGenerated" + str(rounds) + "rounds.txt", "r") as f:
     content = f.readlines()
     lineNo = 3
     simNo = 0
@@ -66,8 +66,8 @@ with open("examples/tipping/results/inferFromGenerated5rounds.txt", "r") as f:
             indexOfLastChar = line.find(")")
             moneyCoeff = float(line[2:indexOfFirstComma])
             prob = float(line[indexOfSecondComma+1:indexOfLastChar])
-            goalCoeffProbs.append([moneyCoeff, 1/6])
-            # goalCoeffProbs.append([moneyCoeff, prob])
+#             goalCoeffProbs.append([moneyCoeff, 1/6])
+            goalCoeffProbs.append([moneyCoeff, prob])
             lineNo += 1
         lineNo += 1
         # now we are at tipping norm
@@ -77,8 +77,8 @@ with open("examples/tipping/results/inferFromGenerated5rounds.txt", "r") as f:
             pair = line.rstrip()[1:-1].split(",")
             norm = int(pair[0])
             prob = float(pair[1])
-            normProbs.append([norm,1/5])
-            # normProbs.append([norm,prob])
+#             normProbs.append([norm,1/5])
+            normProbs.append([norm,prob])
             lineNo += 1
         lineNo += 1
         # now we are at gasp score
@@ -88,8 +88,8 @@ with open("examples/tipping/results/inferFromGenerated5rounds.txt", "r") as f:
             pair = line.rstrip()[1:-1].split(",")
             gasp = int(pair[0])
             prob = float(pair[1])
-            # gaspProbs.append([gasp, prob])
-            gaspProbs.append([gasp, 1/4])
+            gaspProbs.append([gasp, prob])
+#             gaspProbs.append([gasp, 1/4])
             lineNo += 1
         lineNo += 1
         simNo += 1
@@ -99,6 +99,7 @@ if not len(params) == len(posterior):
     print("Something went wrong, posterior array has different dimensions" +
     " than params array")
     exit(1)
+
 
 # PHASE 3
 
@@ -119,7 +120,6 @@ for (values, predictions) in zip(params, posterior):
         l.append(pmse)
     pmses.append(l)
     tops.append(t)
-
 
 # pmses holds all the... pmses, as a list of 3 element lists
 # tops has the same format but holds 1 or 0

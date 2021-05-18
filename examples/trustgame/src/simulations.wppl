@@ -1,9 +1,7 @@
 /** Simulations for the trust game */
 
 /** To run:
-  $ webppl examples/trustgame/src/simulations.wppl --require . --require
-  examples/trustgame [--] [--help] [--experiment <experimentID>] [--scenario
-  <scnearioID>] [--runs <numberOfRuns>] [--reps <numberOfReps>]
+  $ webppl examples/trustgame/src/simulations.wppl --require . --require examples/trustgame [--] [--help] [--experiment <experimentID>] [--scenario <scnearioID>] [--runs <numberOfRuns>] [--reps <numberOfReps>]
  */
 
 
@@ -160,8 +158,46 @@ let testExperiment = function() {
     return {name, agents, options, gameSpecificParams}
   }
 
+  let getAnotherScenario = function() {
+    let name = "this scenario was causing trust dynamics to fail before"
+    let bobParams = generateParams([0.86,0.14], 100, 0.8, 3)
+    let bobInitialStateTmp =
+      generateInitialState(1, 2, 100, 0.8, 2)
+    let bobInitialState =
+      extend(bobInitialStateTmp
+        ,
+        {
+          belief: arrayReplace(bobInitialStateTmp.belief, 0, [1,4]),
+          mentalEstimations:
+            arrayReplace(bobInitialStateTmp.mentalEstimations, 0, [Delta({v: 0.415})])
+        }
+      )
+    let aliceParams = generateParams([0.94,0.06], 100, 0.8, 2)
+    let aliceInitialStateTmp =
+      generateInitialState(0, 2, 100, 0.8, 3)
+    let aliceInitialState =
+      extend(aliceInitialStateTmp
+        ,
+        {
+          belief: arrayReplace(aliceInitialStateTmp.belief, 1, [1,4]),
+          mentalEstimations:
+            arrayReplace(aliceInitialStateTmp.mentalEstimations, 1, [Delta({v: 0.44})])
+        }
+      )
+    let alice = {
+      params: aliceParams,
+      initialState: aliceInitialState
+    }
+    let bob = {
+      params: bobParams,
+      initialState: bobInitialState
+    }
+    let agents = [alice, bob]
+    return {name, agents, options, gameSpecificParams}
+  }
+
   let getScenarios = function() {
-    return [getScenarioBasic(), getScenarioWeird()]
+    return [getScenarioBasic(), getScenarioWeird(), getAnotherScenario()]
   }
 
   return {

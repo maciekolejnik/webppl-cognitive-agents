@@ -54,12 +54,12 @@ let makeTrustCSMG = function(gameSpecificParams) {
    * @returns {investor: number, investee: number}
    */
   let endowment = function(state) {
-    if (state.turn == "investor") {
+    if (state.turn === "investor") {
       return endowments
     }
     return {
       investor: 0,
-      investee: 0
+      investee: state.investments[0]
     }
   }
 
@@ -183,10 +183,10 @@ let makeTrustCSMG = function(gameSpecificParams) {
       let endowments = endowment(state)
       let investor =
         (isDefined(investorHorizon) && state.returns.length >= investorHorizon) ?
-          0 : investorEndowment
+          0 : endowments.investor
       let investee =
         (isDefined(investeeHorizon) && state.returns.length >= investeeHorizon) ?
-          0 : (turn(state) == 0 ? investeeEndowment : state.investments[0])
+          0 : endowments.investee
       return [
         [investor],
         [investee]
@@ -245,14 +245,9 @@ let makeTrustCSMG = function(gameSpecificParams) {
      *   identifies the agent who estimates trust value
      * @param estimatedAgentID {Int}
      *   identifies the agent whose trust is being estimated
-     * @param lastState {Object}
-     * @param action
+     * @param state {Object}
      *
-     * We assume that trust estimation changes only upon investee
-     * returning part (if any) of the investment. The investment action
-     * itself in assumed to not lead to trust changes.
-     *
-     * The idea behind the trust update itself is that trust increases
+     * The idea behind the trust update is that trust increases
      * faster (in response to trustworthy actions) when it's low and
      * decreases faster (in response to untrustworthy actions) when
      * it's high.
@@ -333,7 +328,7 @@ let makeTrustCSMG = function(gameSpecificParams) {
       let lastInvestment = lastState.investments[0]
       let returnProportion = action / lastInvestment
 
-      /** special case: that's how conman sees it */
+      /** special case: conman has a differnt perception of trust changes */
       if (conman && estimatingAgentID === 1) {
         // let scale = (returnProportion < 1) ?
         //   1/2 + returnProportion * 1/2 : 1 - (returnProportion - 1) * 1/2
