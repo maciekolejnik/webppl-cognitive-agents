@@ -521,8 +521,9 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       let eu = u + discountFactor * futureUtilExp
       explain("EU of " + ofAgentID + " at state " + stateToString(state) +
         " for action " + action + ", with " + timeLeft + " steps left: "
-        + eu, (selfId === 1 && ofAgentID === 0 && _.isEqual(state.investments, [1]) && _.isEqual(state.returns, [1]))
-          || (!INFERENCE_MODE && (ofAgentID === selfId && cond === undefined && globalStore.indent === 0)))
+        + eu, // (selfId === 1 && ofAgentID === 1 && _.isEqual(state, [['O',7],['X',0],['O',8],['X',4]])) ||
+         // (selfId === 1 && ofAgentID === 0 && _.isEqual(state, [['O',7],['X',0],['O',8],['X',4]])) ||
+           (!INFERENCE_MODE && (ofAgentID === selfId && cond === undefined && globalStore.indent === 0)))
       return eu
     })
 

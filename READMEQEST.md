@@ -180,4 +180,76 @@ webppl examples/bravery/src/simulations.wppl --require . --require examples/brav
 ```
 This prints total rewards of players accumulated over 10 rounds for three
 different values of lookahead (1,3,5), averaged over five runs. The results
-should roughly match the values in Table 3. 
+should roughly match the values in Table 3 (it used to be 'Table 4', fixed
+on 18/05).
+
+BONUS (added 18/05)
+I haven't originally included anything about tic-tac-toe, since it's a
+running example rather than an experiment. But I will briefly describe 
+below how to use the tool to compute the values in Table 1.
+
+It is very easy to confirm the values in Table 1b. It suffices to run
+```
+webppl examples/tictactoe/src/experiments.wppl --require . --require examples/tictactoe/ -- --experiment 1 --scenario 1
+```
+
+An appropriate scenario has been defined in ```experiments.wppl``` with
+exactly the setup described in the paper. The simulation starts in state 
+called s0 in the paper and only predicts the first move of the parent.
+Running the above command will print the setup, followed by expected
+utilities computed by the parent in state s0 and their computed action.
+The expected utilities will hopefully match the values in Table 1b
+
+Confirming values from Table 1a is a little more complicated than that. 
+By default, the tool does not print these values as they are too 
+"low-level" - if the tool were to print all such values, there would
+be a lot of output. However, we can have the tool print exactly
+the values we are interested in by modifying the expected utility 
+function. It is hacky, but it works and is sometimes useful for debugging
+purposes. In the future I would like to develop a more robust mechanism
+for printing various debugging information, but for now this is what I have.
+Anyway, to confirm the U values from the top row of Table 1a, one must
+uncomment the following expression
+```
+(selfId === 1 && ofAgentID === 1 && _.isEqual(state, [['O',7],['X',0],['O',8],['X',4]])) ||
+```
+in the ```cognitiveAgent.wppl``` file, in ```expectedUtility``` function
+(line 524). I have prepared this line specifically, normally it would
+not be there... 
+Now, after running the same commandline as before, the tool will 
+additionally print the required expected utilities. The printed values
+will hopefully match those in the Table, but note that action naming 
+in the tool is different than in the paper: in the tool, squares of 
+tic-tac-toe are identified by consecutive integers, as given below:
+
+0 | 1 | 2
+3 | 4 | 5
+6 | 7 | 8
+
+*Now that I was checking it, there's a small error in Table 1a, one of
+-0.17 (the one at a_3^k) should be swapped with one of 1.09 (the one 
+at a_5^k) - sorry for that!*
+
+Finally, to confirm the second row of Table 1a, the one specifying 
+probabilities, we will use the same hack, this time commenting out
+an expression
+```
+(selfId === 1 && ofAgentID === 0 && _.isEqual(state, [['O',7],['X',0],['O',8],['X',4]])) ||
+```
+which is just below the previous one (line 525).
+
+Again, this will print some additional expected utilities, this time 
+utilities of the kid, computed by the parent in state called s1 in the 
+paper for various actions of the kid. Based on those expected utilities,
+using softmax choice formula (Eq 5 of decision making equations), one 
+can compute the probabilities from the second row of Table 1a. 
+
+I hope the above makes sense, I'm happy to explain more in case it 
+doesn't. Finally, let me just say that I've made many changes to the
+tool, in particular to do with running experiments, just before 
+submitting the artifact. Therefore, many experiments that are
+not described in this README may not work as they haven't been 
+adapted to the new conventions. If the reviewers would like to 
+experiment with some of those experiments, I'd be happy to update them
+as needed. 
+  
