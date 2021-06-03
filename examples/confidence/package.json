@@ -1,0 +1,15 @@
+{
+  "name": "webppl-confidence",
+  "version": "0.0.1",
+  "description": "library modeling confidence game using webppl-trust",
+  "webppl": {
+    "wppl": [
+      "src/confidence.wppl"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maciekolejnik/cognitive-modelling.git"
+  },
+  "homepage": "https://github.com/maciekolejnik/cognitive-modelling"
+}
