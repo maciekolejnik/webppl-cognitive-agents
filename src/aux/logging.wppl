@@ -70,15 +70,15 @@ let LOGGING = {
 
 
 let getLoggingLevel = function() {
-  if (isDefined(argv.log)) {
-    let level = _.parseInt(argv.log)
-    let failMsg = "logging level passed in commandline (--log <level>) "
-      + "must be an integer between 1 and 5; found: " + level
-    if (!_top.Number.isInteger(level) || level < 1 || level > 5) {
-      error(failMsg)
-    }
-    return level
-  }
+  // if (isDefined(argv.log)) {
+  //   let level = _.parseInt(argv.log)
+  //   let failMsg = "logging level passed in commandline (--log <level>) "
+  //     + "must be an integer between 1 and 5; found: " + level
+  //   if (!_top.Number.isInteger(level) || level < 1 || level > 5) {
+  //     error(failMsg)
+  //   }
+  //   return level
+  // }
   return LOGGING.default
 }
 

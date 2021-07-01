@@ -29,7 +29,7 @@
  *  function (which must be passed in the experiment object if parameters
  *  are needed for the run function)
  *  */
-let run = function(experiment, makeGame) {
+let run = function(experiment, makeGame, argv /** temporary */) {
   let getParams = experiment.getParams
   let params = (isDefined(getParams)) ? getParams() : {}
   if (isDefined(experiment.run)) {
@@ -97,7 +97,7 @@ let runAll = function(experiments, makeGame) {
  *   callbacks: <object (setup, periodic, final...)>? (optional)
  * }
  */
-let processCommandline = function(makeGame, experiments) {
+let processCommandline = function(makeGame, experiments, argv) {
   assertDefined(experiments, "processCommandLine(): experiments undefined")
   assertIsArray(experiments, OBJECT_TYPE, -1,
     "processCommandLine(): experiments not an array!; found: " +

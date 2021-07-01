@@ -104,13 +104,11 @@
  */
 
 let getDataFilename = function(path) {
-  let filename = argv.data
+  // let filename = argv.data
+  let filename = "test.csv"
   if (filename === undefined) {
     error("Please specify a data file name using -- --data <filename> command line option")
   }
-  // if (filename.includes("/")) {
-  //   return filename
-  // }
   return ((path.slice(-1) === "/") ? path : path + "/") + filename
 }
 
@@ -468,7 +466,8 @@ let processData = function(data, csmg, playersPrior) {
  *************************/
 
 let getPredictFilename = function(path) {
-  let filename = argv.predict
+  // let filename = argv.predict
+  let filename = "test.csv"
   if (filename === undefined) {
     error("Please specify a predict file name using --predict <filename> command line")
   }
