@@ -14,7 +14,8 @@
       "src/simulate.wppl",
       "src/infer.wppl",
       "src/cognitiveGame.wppl",
-      "src/cognitiveAgent.wppl"
+      "src/cognitiveAgent.wppl",
+      "examples/trustgame/src/game.wppl"
     ]
   },
   "repository": {

@@ -78,7 +78,7 @@ making it work. Assuming you have added your example to ``examples``
 directory, to run the experiments from the top-level directory
 (``webppl-cognitive-agents``), you would execute
 ```
-$ webppl examples/<exampleName>/src/simulations.wppl --require . --require examples/<exampleName>/ [--] [--experiment
+$ webppl examples/<exampleName>/src/simulations.wppl --require . --require examples/<exampleName>/ [--] [--experiment <experimentID>] [--scenario <scenarioID>]
 ```  
 So besides including the ``webppl-cognitive-agents`` package, you must also 
 include your example.
@@ -251,8 +251,7 @@ agent and consists of:
         should be equal to ``numberOfAgents``; each belief is either
         (i) a distribution over goal coefficient vectors (when 
         ``discrete`` representation used) or (ii) an array of 
-        parameters (when ``dirichlet`` representation used); belief
-        over oneself ? (TODO) 
+        parameters (when ``dirichlet`` representation used)
         + ``mentalEstimations :: [[Distribution]]`` <br/>
         array of estimations of each agent's (including oneself)
         mental states; those estimations are distribution objects
