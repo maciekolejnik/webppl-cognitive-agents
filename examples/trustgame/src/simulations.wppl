@@ -120,6 +120,44 @@ let testExperiment = function() {
     return {name, agents, options, gameSpecificParams}
   }
 
+  let getZeroLookaheadScenario = function() {
+    let name = "Basic (high trust, high trustworthiness)"
+    let bobParams = generateParams([0.3,0.7], 100, 0.8, 0)
+    let bobInitialStateTmp =
+      generateInitialState(1, 2, 100, 0.8, 0)
+    let bobInitialState =
+      extend(bobInitialStateTmp
+        ,
+        {
+          belief: arrayReplace(bobInitialStateTmp.belief, 0, [1,3]),
+          mentalEstimations:
+            arrayReplace(bobInitialStateTmp.mentalEstimations, 0, [Delta({v: 0.7})])
+        }
+      )
+    let aliceParams = generateParams([0.3,0.7], 100, 0.8, 2)
+    let aliceInitialStateTmp =
+      generateInitialState(0, 2, 100, 0.8, 3)
+    let aliceInitialState =
+      extend(aliceInitialStateTmp
+        ,
+        {
+          belief: arrayReplace(aliceInitialStateTmp.belief, 1, [1,3]),
+          mentalEstimations:
+            arrayReplace(aliceInitialStateTmp.mentalEstimations, 1, [Delta({v: 0.7})])
+        }
+      )
+    let alice = {
+      params: aliceParams,
+      initialState: aliceInitialState
+    }
+    let bob = {
+      params: bobParams,
+      initialState: bobInitialState
+    }
+    let agents = [alice, bob]
+    return {name, agents, options, gameSpecificParams}
+  }
+
   let getScenarioWeird = function() {
     let name = "this scenario was causing trust dynamics to fail before"
     let bobParams = generateParams([0.1767,0.8233], 100, 0.8, 3)
@@ -197,7 +235,7 @@ let testExperiment = function() {
   }
 
   let getScenarios = function() {
-    return [getScenarioBasic(), getScenarioWeird(), getAnotherScenario()]
+    return [getScenarioBasic(), getZeroLookaheadScenario(), getScenarioWeird(), getAnotherScenario()]
   }
 
   return {
@@ -575,6 +613,6 @@ let conmanCognitiveExperiment = function() {
 let experiments = [testExperiment, varyTrustExperiment,
   conmanNoncognitiveExperiment, conmanCognitiveExperiment]
 
-let result = processCommandline(makeTrustCSMG, experiments)
+let result = processCommandline(makeTrustCSMG, experiments, argv)
 
 

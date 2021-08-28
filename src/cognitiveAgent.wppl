@@ -465,8 +465,8 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
         "bad game specification: actions at state " +
         stateToString(state) + " are not an array, found: " +
         toString(availableActions))
-      // let action = timeLeft !== 9 ? uniformDraw(availableActions) : ["X",0]
       let action = uniformDraw(availableActions)
+      if (timeLeft === 0) return action
       debug("actRec(): computing expected utility for action "
         + action, globalStore.indent === 0 && !INFERENCE_MODE)
       let eu = expectedUtility(state, action, turn, timeLeft, allMetaParams, cond, mentalSnapshot)
