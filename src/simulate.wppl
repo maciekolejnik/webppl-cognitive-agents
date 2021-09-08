@@ -21,7 +21,7 @@
  *
  *  In case (1), the experiment is run by retrieving its scenarios,
  *  agent names, callbacks etc (which must be passed within the
- *  experiment) and using 'simulateScenarios* directly
+ *  experiment) and using *simulateScenarios* directly
  *
  *  In case (2), the experiment is run by calling the run() function
  *  (which must be passed in the experiment object) and optionally
@@ -29,7 +29,7 @@
  *  function (which must be passed in the experiment object if parameters
  *  are needed for the run function)
  *  */
-let run = function(experiment, makeGame, argv /** temporary */) {
+let run = function(experiment, makeGame, argv) {
   let getParams = experiment.getParams
   let params = (isDefined(getParams)) ? getParams() : {}
   if (isDefined(experiment.run)) {
@@ -39,11 +39,6 @@ let run = function(experiment, makeGame, argv /** temporary */) {
     return {
       result
     }
-    // if (isDefined(getParams)) {
-    //   let params = getParams(argv)
-    //   return run(params)
-    // }
-    // return run()
   }
   /** case (1) */
   let names = experiment.names
@@ -72,20 +67,18 @@ let run = function(experiment, makeGame, argv /** temporary */) {
   }
   let trajectories = simulateScenarios(scenarios, makeGame, names, callbacks, runs)
   let result = wrapUp(trajectories, scenarios)
-  return {
-    result
-  }
+  return { result }
 }
 
-let runAll = function(experiments, makeGame) {
+let runAll = function(experiments, makeGame, argv) {
   return map(function(experiment) {
-    return run(experiment, makeGame)
+    return run(experiment, makeGame, argv)
   }, experiments)
 }
 
 /**
  *
- * @param argv
+ * @param makeGame
  * @param experiments | an array of experiments where each experiment
  * is of the form
  * {
@@ -96,6 +89,7 @@ let runAll = function(experiments, makeGame) {
  *   names: <names of agents>? (optional),
  *   callbacks: <object (setup, periodic, final...)>? (optional)
  * }
+ * @param argv
  */
 let processCommandline = function(makeGame, experiments, argv) {
   assertDefined(experiments, "processCommandLine(): experiments undefined")
@@ -104,42 +98,7 @@ let processCommandline = function(makeGame, experiments, argv) {
     toString(experiments))
   let help = argv.help
   if (help) {
-    let numberOfExperiments = experiments.length
-    display("There are " + numberOfExperiments + " experiments available:")
-    mapIndexed(function(index, experiment) {
-      let name = assertDefined(experiment.name,
-        "processCommandline(): experiment.name undefined!")
-      let desc = assertDefined(experiment.desc,
-        "processCommandline(): experiment.desc undefined!")
-      display("\n" + index + ": " + name)
-      display(desc)
-
-      // let getScenarios = assertDefined(experiment.getScenarios,
-      //   "processCommandline(): experiment.scenarios undefined!")
-      // display("It includes the following scenarios:")
-      // mapIndexed(function(idx, scenario) {
-      //   assertDefined(scenario.name,
-      //     "processCommandline(): scenario.name undefined!")
-      //   display("  " + idx + ": " + scenario.name)
-      // }, scenarios)
-      // display("Each will be run " + (experiment.runsDefault || 1) + " times " +
-      //   "by default (this can be changed)")
-    }, experiments)
-    display("\nTo run a selected one, please pass --experiment <experimentID> " +
-      "(which is the number preceding experiment name above) " +
-      "as command line argument.\n" +
-      "This will run all the scenarios defined " +
-      "within chosen experiment.\n" +
-      "To run a selected scenario, pass --scenario " +
-      "<scenarioID>.\n" +
-      "To modify the default number of runs, pass --runs " +
-      "<numberOfRuns>.\n" +
-    "If the experiment you're running requires parameters to be passed," +
-      " pass them using --<paramName> <paramValue> syntax where names " +
-      "of required params are in the experiment description.\n" +
-    "To change the logging level, pass --log <level>. Possible levels " +
-      "are 0 to 5 where 0 means no logging and 5 logs almost everything. " +
-      "Logs are printed ")
+    printInfo(experiments)
     return
   }
   let experimentIDStr = argv.experiment
@@ -150,13 +109,10 @@ let processCommandline = function(makeGame, experiments, argv) {
       "experimentID must be a valid index into experiments array" +
       " of length " + experiments.length + " but passed: " + experimentID)
     let experiment = experiments[experimentID]
-    let result = run(experiment, makeGame)
-    return extend(result, {
-      experimentID
-      })
-  } else {
-    return runAll(experiments, makeGame)
+    let result = run(experiment, makeGame, argv)
+    return extend(result, { experimentID })
   }
+  return runAll(experiments, makeGame, argv)
 }
 
 /**
@@ -236,7 +192,7 @@ let simulateScenario = function (scenario, gameSetup, names, callbacksOpt) {
   validateScenario(scenario)
   explain(stringInABox("Scenario: " + scenario.name))
   let agentsSetup = scenario.agents
-  printAgentsSetup(agentsSetup, names)
+  printAgentsSetup(agentsSetup, scenario.names || names)
   let game = makeCSMG(gameSetup, scenario.options)
   let agents = mapIndexed(function (i, agentSetup) {
     return makeAgent(agentSetup.params, i, agentSetup.initialState, game)
@@ -537,4 +493,34 @@ let printRandomTrace = function(game, steps) {
     return randomTraceRec(nextState, remainingSteps - 1)
   }
   randomTraceRec(initialState, steps)
+}
+
+/** auxiliary */
+let printInfo = function(experiments) {
+  let helpMessage = "\nTo run a selected one, please pass --experiment <experimentID> " +
+    "(which is the number preceding experiment name above) " +
+    "as command line argument.\n" +
+    "This will run all the scenarios defined " +
+    "within chosen experiment.\n" +
+    "To run a selected scenario, pass --scenario " +
+    "<scenarioID>.\n" +
+    "To modify the default number of runs, pass --runs " +
+    "<numberOfRuns>.\n" +
+    "If the experiment you're running requires parameters to be passed," +
+    " pass them using --<paramName> <paramValue> syntax where names " +
+    "of required params are in the experiment description.\n" +
+    "To change the logging level, pass --log <level>. Possible levels " +
+    "are 0 to 5 where 0 means no logging and 5 logs almost everything. " +
+    "Logs are printed "
+  let numberOfExperiments = experiments.length
+  display("There are " + numberOfExperiments + " experiments available:")
+  mapIndexed(function(index, experiment) {
+    let name = assertDefined(experiment.name,
+      "processCommandline(): experiment.name undefined!")
+    let desc = assertDefined(experiment.desc,
+      "processCommandline(): experiment.desc undefined!")
+    display("\n" + index + ": " + name)
+    display(desc)
+  }, experiments)
+  display(helpMessage)
 }

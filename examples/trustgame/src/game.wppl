@@ -253,6 +253,8 @@ let makeTrustCSMG = function(gameSpecificParams) {
      * it's high.
      */
     let updateTrustEstimation = function(trust, estimatingAgentID, estimatedAgentID, state, observation) {
+      let SMOOTHING_FACTOR = 0.3
+
       let lastState = getPreviousState(state)
       let action = getLastAction(state)
       let maxPossibleTransfer = maxPossibleTransfer(lastState)
@@ -261,6 +263,10 @@ let makeTrustCSMG = function(gameSpecificParams) {
       /** trust of action-taker doesn't change  */
       if (turn(lastState) === estimatedAgentID && !conman) return trust
 
+      let scale = Math.sqrt(1 / state.investments.length)
+      let updateTrust = function(oldTrust, newTrust, scale) {
+        return oldTrust + (newTrust - oldTrust) * scale
+      }
       if (turn(lastState) === 0) {
         /** case: alice invests and estimates bob's trust change */
 
@@ -272,6 +278,78 @@ let makeTrustCSMG = function(gameSpecificParams) {
           return Math.max(0.7 - diff, 0)
           // return Math.max(0, trust - diff)
         }
+
+        /** this is alternative to below
+         * bob's trust is assumed to be affected by
+         * 1. relationship between transfer/maxPossibleTransfer ratio and his trust
+         * 2. relationship between transfer/previousTransfer ratio and his previous transfers
+         * */
+        let PEAK = 0.9
+        let MAX_INCREASE = 0.25
+        let MAX_DECREASE = 0.4
+        // let WINDOW = 0.5
+
+        let transferProportion = action / maxPossibleTransfer
+
+        let WINDOW = 0.2 + 0.5 * transferProportion
+
+        // below compute parameters to gaussian function
+        let b = PEAK * transferProportion
+        assert(b >= 0 && b < 1, "updateTrustEstimation(): " +
+          "b=" + b + "; should be between 0 and 1!")
+        let d = MAX_DECREASE * Math.sqrt(1-b)
+        let a = d + MAX_INCREASE * Math.sqrt(1 - b)
+        let c = WINDOW / (2 * Math.sqrt(2 * Math.log(a/d)))
+        // display("a=" + a + ", b=" + b + ", c=" + c + ", d=" + d)
+        let getGaussian = function(a,b,c,d) {
+          let f = function(x) {
+            return a * Math.exp(-Math.pow((x-b), 2) / (2 * Math.pow(c,2))) - d
+          }
+          return f
+        }
+        let gaussian = getGaussian(a,b,c,d)
+        let newTrust1 = Math.min(1, Math.max(0, trust + gaussian(trust)))
+
+        let computeInvesteeNicenessWithCertainty = function(state) {
+          let pairs = zip(state.investments, state.returns)
+          let nonZeroPairs = filter(function(x) { return x[0] !== 0 || x[1] !== 0}, pairs)
+          let numberOfData = nonZeroPairs.length
+          if (numberOfData === 0) return [0,0]
+          // this asymptotically approaches 1
+          let certainty = -1/(numberOfData + 1) + 1
+          let niceness = reduceL(function (acc, el) {
+            let returnProp = el[1] / el[0]
+            return (acc === -1) ? returnProp : SMOOTHING_FACTOR * returnProp + (1 - SMOOTHING_FACTOR) * acc
+          }, -1, nonZeroPairs)
+          return [niceness, certainty]
+        }
+        let nicenessWithCertainty = computeInvesteeNicenessWithCertainty(lastState)
+        let computeNewTrustFromNiceness = function(r1, r2, investorEndowment) {
+          let auxInfo = "\nr1=" + r1 + "; r2=" + r2
+          if (r2 > 1 || r2 >= r1) {
+            let factor = (r2 <= 1) ? 1 + 0.4 * (1 - r2) : 1 - (r2 - 1) / (investorEndowment - 1) * 0.3
+            assert(factor >= 0.7 && factor <= 1.4,
+              "updateTrustEstimation(): factor=" + factor +
+              "; expected between 0.7 and 1.4!" + auxInfo)
+            let result = Math.exp(factor * trust - factor)
+            return result
+          }
+          /** otherwise, trust decreases */
+          let factor = 0.3 + 0.4 * (r1 - r2) / 2
+          assert(factor >= 0.3 && factor <= 0.7,
+            "updateTrustEstimation(): factor=" + factor +
+            "; expected between 0.3 and 0.7")
+          let result = Math.log((Math.exp(factor) - 1) * trust + 1)
+          return result
+        }
+        let theirNiceness = nicenessWithCertainty[0]
+        let certainty = nicenessWithCertainty[1]
+        let myNiceness = lastState.investments.length === 0 ? 0 : action / (lastState.investments[0] || 1)
+        let newTrust2 = computeNewTrustFromNiceness(theirNiceness, myNiceness, investorEndowment)
+
+        let newTrust = newTrust1 * (1 - certainty) + newTrust2 * certainty
+
+        return updateTrust(trust, newTrust, scale)
 
         /** first investment is a special case, the idea is that bob's
          * trust will increase if investment (as a proportion of maximal
@@ -303,24 +381,9 @@ let makeTrustCSMG = function(gameSpecificParams) {
           "updateTrustEstimation(): r2=" + r2 + "; should be " +
           "between 0 and endowment!")
 
-        let auxInfo = "\nr1=" + r1 + "; r2=" + r2
-
         /** trust will increase if investor is at least as nice as investee */
-        if (r2 > 1 || r2 >= r1) {
-          let factor = (r2 <= 1) ? 1 + 0.4*(1-r2) : 1 - (r2-1)/(investorEndowment-1)*0.3
-          assert(factor >= 0.7 && factor <= 1.4,
-            "updateTrustEstimation(): factor=" + factor +
-            "; expected between 0.7 and 1.4!" + auxInfo)
-          let result = Math.exp(factor * trust - factor)
-          return result
-        }
-        /** otherwise, trust decreases */
-        let factor = 0.3 + 0.4 * (r1-r2) / 2
-        assert(factor >= 0.3 && factor <= 0.7,
-          "updateTrustEstimation(): factor=" + factor +
-        "; expected between 0.3 and 0.7")
-        let result = Math.log((Math.exp(factor) - 1) * trust + 1)
-        return result
+
+        return computeNewTrustFromNiceness(r1,r2,investorEndowment)
       }
 
       /** case of bob's return - bob estimates how alice's trust
@@ -338,9 +401,6 @@ let makeTrustCSMG = function(gameSpecificParams) {
           ((returnProportion >= 1) ? Math.exp(scale * trust-scale) : Math.log(scale*trust+1))
       }
 
-      assertBetween(returnProportion, 0, 2,
-        "updateTrustEstimation(): returnProportion expected in " +
-        "[0,2]; found: " + returnProportion)
       /** the idea is to pick a dynamics function based on proportion
        * of returned money when compared with investment.
        * This proportion ranges between 0 and 2. There are following
@@ -356,23 +416,38 @@ let makeTrustCSMG = function(gameSpecificParams) {
        * (iii) proportion < 1 - this is similar to previous case except
        * that we now use f(x) = x^2 to ensure decreasing faster first
        */
-      if (returnProportion > 1.2) {
-        let b = 3 / returnProportion - 3/2
-        assertBetween(b, 0, 1,
-          "updateTrustEstimation(): case >= 1.2, b=" + b)
-        return expLogCurveCrossingIdentity(b, trust)
+      let computeTrustChangeAfterReturn = function(trust, returnProportion) {
+        assertBetween(returnProportion, 0, 2,
+          "updateTrustEstimation(): returnProportion expected in " +
+          "[0,2]; found: " + returnProportion)
+        if (returnProportion > 1.2) {
+          let b = 3 / returnProportion - 3/2
+          assertBetween(b, 0, 1,
+            "updateTrustEstimation(): case >= 1.2, b=" + b)
+          return expLogCurveCrossingIdentity(b, trust)
+        }
+        if (returnProportion < 1) {
+          return expLogCurveCrossingIdentity(Math.pow(returnProportion, 2), trust)
+        }
+        /** case (i) */
+        return Math.exp(trust - 1)
       }
-      if (returnProportion < 1) {
-        return expLogCurveCrossingIdentity(Math.pow(returnProportion, 2), trust)
-      }
-      /** case (i) */
-      return Math.exp(trust - 1)
+      let newTrust = computeTrustChangeAfterReturn(trust, returnProportion)
+      return updateTrust(trust, newTrust, scale)
+      // return newTrust
     }
 
-    /** computes f(x) where f is a (trust dynamics) function that
+    /** This basically expresses a curve on [0,1] that starts (at x=0)
+     * as (stretched-out) exponential above y=x identity line, crosses
+     * y=x at x=crossPoint and then continues as logarithmic from
+     * x=crossPoint until x=1.
+     *
+     * In particular, this function computes f(x) where f is a
+     * (trust dynamics) function that
      * starts (at x=0) as f1(x) = exp(kx+l) (k and l depend on crossPoint)
      * then crossed y=x at x=crosspoint and then continues as
-     * f2(x) = log(kx+l) until x=1.
+     * f2(x) = log(kx+l) (k and l depend on crossPoint but are different than above)
+     * until x=1.
      * hence, overall,
      *      / f1 on [0,crossPoint]
      * f = |  id at crossPoint
@@ -404,8 +479,8 @@ let makeTrustCSMG = function(gameSpecificParams) {
      * for the [0,cross1 + a bit].
      * hence,
      *      / min(f3,f1) on [0,cross2]
-     * f = |  id at crossPoint
-     *     \  f2 on [crossPoint,1]
+     * f = |  id at cross2
+     *     \  f2 on [cross2,1]
      * */
     let expLogQuadraticCurveCrossingIdentity = function(cross1, cross2, x) {
       assert(cross1 >= 0 && cross1 <= cross2 && cross2 <= 1,

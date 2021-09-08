@@ -30,11 +30,10 @@ let testTrustDynamics = function() {
   let sucMsgTurstDynamics = "PASS: trust dynamics: "
   /** it should remain low after a low investment */
   let trustlow1 = updateTrustEstimation(0.2, 0, 1, getState([1]))
-  assertBetween(trustlow1, 0.2, 0.4,
+  assertBetween(trustlow1, 0.2, 0.5,
     failMsgTrustDynamics + "initial: 0.2, action: 1, found: " + trustlow1 +
     ", expected between 0.2 and 0.4 (should go up)",
     sucMsgTurstDynamics + "initial: 0.2, action: 1 (out of 4), updated: " + trustlow1)
-  let trustlow2 = updateTrustEstimation(0.2, 0, 1, getState([2]))
   let trustlow4 = updateTrustEstimation(0.2, 0, 1, getState([4]))
   assert(trustlow4 < trustlow1, failMsgTrustDynamics +
     "given initial trust 0.2, investing 1 should give higher trust than " +

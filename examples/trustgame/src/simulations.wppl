@@ -74,7 +74,7 @@ let gameSpecificParams = {
 }
 
 let options = {
-  horizon: 10,
+  horizon: 16,
   beliefRepresentation: 'dirichlet'
 }
 
@@ -122,9 +122,9 @@ let testExperiment = function() {
 
   let getZeroLookaheadScenario = function() {
     let name = "Basic (high trust, high trustworthiness)"
-    let bobParams = generateParams([0.3,0.7], 100, 0.8, 0)
+    let bobParams = generateParams([0.3,0.7], 100, 0.8, 3)
     let bobInitialStateTmp =
-      generateInitialState(1, 2, 100, 0.8, 0)
+      generateInitialState(1, 2, 100, 0.8, 2)
     let bobInitialState =
       extend(bobInitialStateTmp
         ,
@@ -609,9 +609,169 @@ let conmanCognitiveExperiment = function() {
   }
 }()
 
+let mturkExperiment = function() {
+
+  let getPositiveNormalDiscretised = function(mean, dev, samples) {
+    let generate = function() {
+      let s = gaussian({mu: mean, sigma: dev})
+      if (s > 0) return s
+      return generate()
+    }
+    return Infer({method: 'forward', samples: samples, model: function() {
+        return generate()
+      }});
+  }
+
+  let generateBotInitialState = function(botID, alphaEst, discountEst, lookAheadEst, initialBelief, trustEst) {
+    let isInvestor = botID === 0
+    let belief = isInvestor ? [undefined, initialBelief] : [initialBelief, undefined]
+    let mentalEstimations = isInvestor ? [undefined, [trustEst]] : [[trustEst], undefined]
+    let alpha = isInvestor ? [undefined, alphaEst] : [alphaEst, undefined]
+    let lookAhead = isInvestor ? [undefined, lookAheadEst] : [lookAheadEst, undefined]
+    let discountFactor = isInvestor ? [undefined, discountEst] : [discountEst, undefined]
+    return {
+      belief,
+      mentalEstimations,
+      metaParamsEstimations: {
+        alpha, lookAhead, discountFactor
+      }
+    }
+  }
+
+  let generateParticipantInitialState = function(participantID) {
+    let initialBelief = [1,1]
+    let alphaEst = Delta({v: 10})
+    let discountEst = Delta({v:0.8})
+    let lookAheadEst = Delta({v: 2})
+    let trustEst = Delta({v: uniform({a: 0, b: 1})})
+    return generateBotInitialState(participantID, alphaEst, discountEst, lookAheadEst, initialBelief, trustEst)
+  }
+
+  /**
+   *
+   * @param role | 0 (investor) or 1 (investee)
+   * @param goalCoeffs
+   * @param lookAhead
+   * @param belief
+   * @param trustEstimation
+   * @param alphaEst
+   * @param lookAheadEst
+   */
+  // let getBot = function(role, goalCoeffs, lookAhead, belief, trustEst, alphaEst, lookAheadEst) {
+  let getBot = function(role, goalCoeffs) {
+    let mean = categorical({vs: [0,2,6,10,14,18,22]})
+    let dev = categorical({vs: [4,8]})
+    let alphaEst = getPositiveNormalDiscretised(mean, dev, 10)
+    // let lookAhead = categorical({vs: [1,2,3]})
+    let lookAhead = 3
+    let belief = categorical({ vs: [[1,1],[1,4],[2,3],[3,2],[4,1]]})
+    // let belief = [1,4]
+    let trustEst = Delta({v: categorical({vs: [.2,.4,.5,.6,.8,1]})})
+    // let trustEst = Delta({ v: 1 })
+    let lookAheadEst = Categorical({ps: [1/13,2/13,5/13,5/13], vs: [0,1,2,3]})
+    let botParams = generateParams(goalCoeffs, 100, 0.8, lookAhead)
+    let botInitialState = generateBotInitialState(role, alphaEst, Delta({v: 0.8}), lookAheadEst, belief, trustEst)
+    return {
+      params: botParams,
+      initialState: botInitialState
+    }
+  }
+
+  let INVESTOR = 0
+  let INVESTEE = 1
+
+  let generateParticipant = function(role) {
+    let moneyCoeff = uniform({a:0, b:1})
+    let alpha = uniform({a:5, b:30})
+    let lookAhead = categorical({vs: [1,2,3]})
+    let params = generateParams([moneyCoeff, 1-moneyCoeff], alpha, 0.8, lookAhead)
+    let initialState = generateParticipantInitialState(role)
+    return {
+      params, initialState
+    }
+  }
+
+  let setup = function(game, agents, state, names) {
+    let printAgent = function(agent) {
+      display(agent)
+      display(agent.params)
+      display(agent.initialState)
+    }
+    display("Agent 0: ")
+    printAgent(agents[0])
+    display("Agent 1: ")
+    printAgent(agents[1])
+  }
+
+  let thisCallbacks = extend(callbacks, { setup })
+
+  let names = ["bot", "participant"]
+
+  let getGreedyBotAsInvestorScenario = function() {
+    let bot = getBot(INVESTOR, [.8,.2])
+    let participant = generateParticipant(INVESTEE)
+    let agents = [bot, participant]
+    let name = "Greedy bot as investor"
+    return {name, agents, names, options, gameSpecificParams}
+  }
+
+  let getGreedyBotAsInvesteeScenario = function() {
+    let bot = getBot(INVESTEE, [.8,.2])
+    let participant = generateParticipant(INVESTOR)
+    let agents = [bot, participant]
+    let name = "Greedy bot as investee"
+    return {name, agents, names: arrayReverse(names), options, gameSpecificParams}
+  }
+
+  let getNeutralBotAsInvestorScenario = function() {
+    let bot = getBot(INVESTOR, [.5,.5])
+    let participant = generateParticipant(INVESTEE)
+    let agents = [bot, participant]
+    let name = "Neutral bot as investor"
+    return {name, agents, names, options, gameSpecificParams}
+  }
+
+  let getNeutralBotAsInvesteeScenario = function() {
+    let bot = getBot(INVESTEE, [.5,.5])
+    let participant = generateParticipant(INVESTOR)
+    let agents = [bot, participant]
+    let name = "Neutral bot as investee"
+    return {name, agents, names: arrayReverse(names), options, gameSpecificParams}
+  }
+
+  let getSelflessBotAsInvestorScenario = function() {
+    let bot = getBot(INVESTOR, [.2,.8])
+    let participant = generateParticipant(INVESTEE)
+    let agents = [bot, participant]
+    let name = "Selfless bot as investor"
+    return {name, agents, names, options, gameSpecificParams}
+  }
+
+  let getSelflessBotAsInvesteeScenario = function() {
+    let bot = getBot(INVESTEE, [.2,.8])
+    let participant = generateParticipant(INVESTOR)
+    let agents = [bot, participant]
+    let name = "Selfless bot as investee"
+    return {name, agents, names: arrayReverse(names), options, gameSpecificParams}
+  }
+
+  let getScenarios = function() {
+    return [getGreedyBotAsInvestorScenario(), getGreedyBotAsInvesteeScenario(),
+            getNeutralBotAsInvestorScenario(), getNeutralBotAsInvesteeScenario(),
+            getSelflessBotAsInvestorScenario(), getSelflessBotAsInvesteeScenario()]
+  }
+
+  return {
+    name: "mturkExperiment",
+    desc: "simulates the bot as implemented for the mturk trust game experiment",
+    getScenarios,
+    names,
+    callbacks
+  }
+}()
 
 let experiments = [testExperiment, varyTrustExperiment,
-  conmanNoncognitiveExperiment, conmanCognitiveExperiment]
+  conmanNoncognitiveExperiment, conmanCognitiveExperiment, mturkExperiment]
 
 let result = processCommandline(makeTrustCSMG, experiments, argv)
 
