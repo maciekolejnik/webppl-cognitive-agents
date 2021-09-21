@@ -56,7 +56,7 @@ let getGameAPI = function (gameSpecificAPI) {
  * cognitive model. This mostly involves creating an appropriate
  * mental reward structure.
  */
-let makeCSMG = function (gameSetup, externalParams, observationsOpt) {
+let makeCSMG = function (gameSetup, externalParams) {
   /** Extract basic components and validate user-defined *gameSetup* */
   assertDefined(gameSetup,
     "makeCSMG(): gameSetup undefined")
