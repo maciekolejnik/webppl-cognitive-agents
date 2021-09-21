@@ -32,6 +32,10 @@ let arrayJoin = function(a1,a2) {
     return a1.concat(a2)
 }
 
+let arrayCons = function(x, arr) {
+    return [x].concat(arr)
+}
+
 let arrayConcat = function(arrOfArrs) {
     return reduce(arrayJoin, [], arrOfArrs)
 }
@@ -62,6 +66,30 @@ let arrayIsEmpty = function(array) {
     assertIsArray(array, ANY_TYPE, -1,
       "isEmpty called on " + array + "; expected: array")
     return array.length === 0
+}
+
+/** takes first n elements of array */
+let arrayTake = function(array, n) {
+    let arrayTakeHelper = function(array, n, i) {
+        assertIsArray(array, ANY_TYPE, -1,
+          "arrayTake called on " + array + "; expected: array" )
+        if (i >= n) return []
+        if (i + 1 > array.length) return []
+        return arrayCons(array[i], arrayTakeHelper(array, n, i+1))
+    }
+    return arrayTakeHelper(array, n, 0)
+}
+
+/** drops first n elements of array */
+let arrayDrop = function(array, n) {
+    let arrayDropHelper = function(array, n, i) {
+        assertIsArray(array, ANY_TYPE, -1,
+          "arrayDrop called on " + array + "; expected: array" )
+        if (i + 1 > array.length) return []
+        if (i < n) return arrayDropHelper(array, n, i+1)
+        return arrayCons(array[i], arrayDropHelper(array, n, i+1))
+    }
+    return arrayDropHelper(array, n, 0)
 }
 
 /** This is a left fold (function @reduce provided by webppl is a right

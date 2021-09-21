@@ -187,12 +187,13 @@ let simulateScenarios = function (scenarios, getGameSetup, namesOpt, callbacksOp
  * the last pair contains a state and an array of total rewards
  * accumulated by agents throughout execution
  */
-let simulateScenario = function (scenario, gameSetup, names, callbacksOpt) {
+let simulateScenario = function (scenario, gameSetup, namesDefault, callbacksOpt) {
   /** here we're validating user input */
   validateScenario(scenario)
   explain(stringInABox("Scenario: " + scenario.name))
   let agentsSetup = scenario.agents
-  printAgentsSetup(agentsSetup, scenario.names || names)
+  let names = scenario.names || namesDefault
+  printAgentsSetup(agentsSetup, names)
   let game = makeCSMG(gameSetup, scenario.options)
   let agents = mapIndexed(function (i, agentSetup) {
     return makeAgent(agentSetup.params, i, agentSetup.initialState, game)

@@ -14,6 +14,7 @@ let testTrustDynamics = function() {
   }
 
   let game = makeTrustCSMG(gameSpecificParams)
+  let turn = game.API.turn
 
   let getState = function(actions) {
     return reduceL(function(state, action) {
@@ -24,39 +25,142 @@ let testTrustDynamics = function() {
   let updateTrustEstimation = game.mentalStateDynamics.estimationHeuristicArr[0]
   let transitionFn = game.transitionFn
 
-  /** First suppose trust is low */
+  let getNewTrust = function(oldTrust, state, action) {
+    let actingAgent = turn(getState(state))
+    let otherAgent = otherAgentID(actingAgent)
+    let nextState = getState(arrayJoin(state, [action]))
+    let newTrust = updateTrustEstimation(oldTrust, actingAgent, otherAgent, nextState)
+    return newTrust
+  }
 
-  let failMsgTrustDynamics = "FAIL: trust dynamics: "
-  let sucMsgTurstDynamics = "PASS: trust dynamics: "
-  /** it should remain low after a low investment */
-  let trustlow1 = updateTrustEstimation(0.2, 0, 1, getState([1]))
-  assertBetween(trustlow1, 0.2, 0.5,
-    failMsgTrustDynamics + "initial: 0.2, action: 1, found: " + trustlow1 +
-    ", expected between 0.2 and 0.4 (should go up)",
-    sucMsgTurstDynamics + "initial: 0.2, action: 1 (out of 4), updated: " + trustlow1)
-  let trustlow4 = updateTrustEstimation(0.2, 0, 1, getState([4]))
-  assert(trustlow4 < trustlow1, failMsgTrustDynamics +
-    "given initial trust 0.2, investing 1 should give higher trust than " +
-    "investing 4, as the latter considered suspicious",
-    sucMsgTurstDynamics + "initial: 0.2; after high transfer (4): " +
-    trustlow4 + "; after low transfer: (1): " + trustlow1 + ". As expected " +
-    "higher transfer is considered suspicious and results in lower trust")
+  let describeTrustUpdate = function(state, action, oldTrust, newTrust) {
+    return "after taking action " + action + " in state " +
+      arrayToString(state) + " trust changed from " + oldTrust + " to " +
+      newTrust
+  }
 
-  let trustHigh1 = updateTrustEstimation(0.8, 0, 1, getState([1]))
-  let trustHigh4 = updateTrustEstimation(0.8, 0, 1, getState([4]))
-  assert(trustHigh4 > trustHigh1, failMsgTrustDynamics + "given " +
-    "high trust (0.8), low investment (1) should result in lower trust than" +
-    " high investment (4)",
-    sucMsgTurstDynamics + "initial: 0.8; low investment (1) resulted " +
-    "in lower trust (" + trustHigh1 + ") than high investment (4) - " + trustHigh4)
+  let assertTrustBetween = function(oldTrust, lo, hi, state, action) {
+    let newTrust = getNewTrust(oldTrust, state, action)
+    let msg = describeTrustUpdate(state, action, oldTrust, newTrust)
+    let failMsg = "FAIL: " + msg +
+    ", but it was expected to end up between " + lo + " and " + hi
+    let sucMsg = "PASS: " + msg + ", as expected"
+    assertBetween(newTrust, lo, hi, failMsg, sucMsg)
+  }
 
-  display(updateTrustEstimation(0.45, 0,1,getState([0])))
-  display(updateTrustEstimation(0.36, 0,1,getState([0,0,0])))
+  /** check that trust after taking action 'lo' is no more than after action 'hi' */
+  let assertTrustNoGreater = function(oldTrust, state, actionLo, actionHi) {
+    let newTrustLo = getNewTrust(oldTrust, state, actionLo)
+    let newTrustHi = getNewTrust(oldTrust, state, actionHi)
+    let failMsg = "FAIL: starting from trust " + oldTrust + " at state " + arrayToString(state) +
+      ", action " + actionLo + " should result in no greater trust than action " + actionHi +
+      ", but found otherwise: " + newTrustLo + " and " + newTrustHi + ", respectively"
+    let sucMsg = "PASS: starting from trust " + oldTrust + " at state " + arrayToString(state) +
+      ", action " + actionLo + " results in no greater trust than action " + actionHi +
+      ": " + newTrustLo + " <= " + newTrustHi
+    assert(newTrustLo <= newTrustHi, failMsg, sucMsg)
+  }
+
+  let assertTrustIncreases = function(oldTrust, state, action) {
+    let newTrust = getNewTrust(oldTrust, state, action)
+    let msg = describeTrustUpdate(state, action, oldTrust, newTrust)
+    let failMsg = "FAIL: " + msg + ", i.e., trust didn't increase, " +
+      "but it was expected to"
+    let sucMsg = "PASS: " + msg + ", i.e., an increase, as expected"
+    assert(newTrust > oldTrust, failMsg, sucMsg)
+    return newTrust - oldTrust
+  }
+
+  let assertTrustDecreases = function(oldTrust, state, action) {
+    let newTrust = getNewTrust(oldTrust, state, action)
+    let msg = describeTrustUpdate(state, action, oldTrust, newTrust)
+    let failMsg = "FAIL: " + msg + ", i.e., trust didn't decrease, " +
+      "but it was expected to"
+    let sucMsg = "PASS: " + msg + ", i.e., a decrease, as expected"
+    assert(newTrust < oldTrust, failMsg, sucMsg)
+    return oldTrust - newTrust
+  }
 
 
-  display(updateTrustEstimation(0.36, 0,1,getState([1])))
-  display(updateTrustEstimation(0.36, 0,1,getState([2])))
-  display(updateTrustEstimation(0.36, 0,1,getState([3])))
+  /** below we check that various trust dynamics properties hold */
+
+  /** start with some basic stuff */
+
+  /** start from point of view of investor */
+
+  /** 1. when trust is low, low, but nonzero investment should
+   * preserve/slightly increase trust */
+  assertTrustBetween(0.2, 0.15, 0.5, [], 1)
+
+  /** 2. when trust is low, it should not go up after a zero investment */
+  assertTrustDecreases(0.2, [], 0)
+
+  /** 3. when trust is low, it should go up after a decent investment */
+  assertTrustIncreases(0.2, [], 2)
+
+  /** 4. when trust is medium, it should go down quite a bit after a zero investment */
+  assertTrustBetween(0.5, 0.1, 0.4, [], 0)
+
+  /** 5. when trust is medium, it should not change too much after an average investment */
+  assertTrustBetween(0.5, 0.4, 0.6, [], 2)
+
+  /** 6. when trust is high, it should decrease significantly after a very low investment */
+  assertTrustBetween(0.8, 0.2, 0.6, [], 0)
+  assertTrustBetween(0.8, 0.2, 0.65, [], 1)
+
+  /** 7. when trust is high, it should be preserved by a high investment */
+  assertTrustIncreases(0.8, [], 4)
+  assertTrustBetween(0.8, 0.7, 0.9, [], 3)
+
+  /** now consider from point of view of investee */
+
+  /** 1. when trust is low, a decent return should increase it */
+  assertTrustIncreases(0.2, [2], 2)
+
+  /** 2. even when trust is low, a small return decreases it */
+  assertTrustDecreases(0.2, [2], 0)
+  assertTrustBetween(0.2, 0.05, 0.25, [2], 1)
+
+  /** 3. when trust is medium, a low return should decrease it */
+  assertTrustDecreases(0.5, [2], 1)
+
+  /** 4. Bigger investment leads to bigger trust */
+  assertTrustNoGreater(0.5, [3], 3, 4)
+
+  /** 5. When trust is high, only high investment will lead to an increase */
+  assertTrustDecreases(0.8, [3], 3)
+  assertTrustIncreases(0.8, [3], 4)
+
+  display("basic tests are passing :)")
+
+  /** more sophisticated requirements */
+
+  /** investor point of view first */
+
+  /** bigger investments lead to bigger trust */
+  assertTrustNoGreater(0.2, [], 2, 3)
+  assertTrustNoGreater(0.5, [], 2, 4)
+  assertTrustNoGreater(0.8, [], 1, 4)
+
+  /** trust increases/decreases are lower later on */
+  let inc1 = assertTrustIncreases(0.5, [], 3)
+  let inc2 = assertTrustIncreases(0.5, [1,2], 3)
+  let inc3 = assertTrustIncreases(0.5, [1,2,3,3], 3)
+  assert(inc1 > inc2 && inc2 > inc3, "FAIL: trust should increase slower " +
+    "as the game progresses, instead found: inc1=" + inc1 + ", inc2=" + inc2 + ", inc3=" + inc3)
+
+  let dec1 = assertTrustDecreases(0.5, [], 1)
+  let dec2 = assertTrustDecreases(0.5, [2,2], 1)
+  let dec3 = assertTrustDecreases(0.5, [2,2,1,0], 1)
+  assert(dec1 > dec2 && dec2 > dec3, "FAIL: trust should decrease slower " +
+    "as the game progresses, instead found: dec1=" + dec1 + ", dec2=" + dec2 + ", dec3=" + dec3)
+
+  /** below considers from investee's point of view */
+  assertTrustDecreases(0.5, [2], 2)
+  assertTrustIncreases(0.5, [2], 3)
+  /** big return is a bit suspicious */
+  assertTrustBetween(0.5, 0.4, 0.6, [2], 4)
+
 }
 
 let testTrustDynamicsConman = function() {

@@ -718,8 +718,11 @@ let mturkExperiment = function() {
   let getGreedyBotAsInvesteeScenario = function() {
     let bot = getBot(INVESTEE, [.8,.2])
     let participant = generateParticipant(INVESTOR)
-    let agents = [bot, participant]
+    let agents = [participant, bot]
     let name = "Greedy bot as investee"
+    display("TEST")
+    display(names)
+    display(arrayReverse(names))
     return {name, agents, names: arrayReverse(names), options, gameSpecificParams}
   }
 
@@ -734,7 +737,7 @@ let mturkExperiment = function() {
   let getNeutralBotAsInvesteeScenario = function() {
     let bot = getBot(INVESTEE, [.5,.5])
     let participant = generateParticipant(INVESTOR)
-    let agents = [bot, participant]
+    let agents = [participant, bot]
     let name = "Neutral bot as investee"
     return {name, agents, names: arrayReverse(names), options, gameSpecificParams}
   }
@@ -750,7 +753,7 @@ let mturkExperiment = function() {
   let getSelflessBotAsInvesteeScenario = function() {
     let bot = getBot(INVESTEE, [.2,.8])
     let participant = generateParticipant(INVESTOR)
-    let agents = [bot, participant]
+    let agents = [participant, bot]
     let name = "Selfless bot as investee"
     return {name, agents, names: arrayReverse(names), options, gameSpecificParams}
   }
@@ -765,7 +768,6 @@ let mturkExperiment = function() {
     name: "mturkExperiment",
     desc: "simulates the bot as implemented for the mturk trust game experiment",
     getScenarios,
-    names,
     callbacks
   }
 }()
