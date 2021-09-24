@@ -134,6 +134,16 @@ let makeCSMG = function (gameSetup, externalParams) {
     "expected to match number of mental rewards; found: " +
     rewardUtilityFunctions.mental.length + ", " + numberOfRewards.mental)
 
+  /** Heuristics */
+  let heuristics = assertDefined(gameSetup.heuristics,
+    "makeCSMG(): gameSetup.heuristic undefined")
+  assertDefined(heuristics.action, "makeCSMG(): gameSetup.heuristics.action undefined")
+  assertDefined(heuristics.belief, "makeCSMG(): gameSetup.heuristics.belief undefined")
+  assertDefined(heuristics.action.applies,
+    "makeCSMG(): gameSetup.heuristics.action.applies undefined")
+  assertDefined(heuristics.belief.applies,
+    "makeCSMG(): gameSetup.heuristics.belief.applies undefined")
+
   /** Physical rewards structure
    *  This simply delegates to the physicalRewards object as given
    *  in gameSetup
@@ -204,57 +214,12 @@ let makeCSMG = function (gameSetup, externalParams) {
             else
               return nestedEstimation(state, mentalAttitudeIndex, mentalSnapshot)
           }
-          return expectation(estimation(state, overAgentID, mentalAttitudeIndex))
+          return expectation(estimateMentalState(state, overAgentID, mentalAttitudeIndex))
         }
         return map(estimateReward, agentArr)
       }
       let rewardsByAttitudeArr = mapIndexed(computeRewardsFromAttitude, ofAgentMentalUtility)
       return rewardsByAttitudeArr
-
-
-      // if (selfAgentID == ofAgentID) {
-      //   info("computeMentalRewards(): " + selfAgentID + " computing their own rewards")
-      //   /**
-      //    * @param mentalAttitudeIndex | identifies mental state
-      //    * @param agentArr | identifies agents whose mental state selfAgentD cares about
-      //    */
-      //   let computeRewardsFromAttitude = function (mentalAttitudeIndex, agentArr) {
-      //     let estimateReward = function(overAgentID) {
-      //       if (overAgentID === selfAgentID) return mentalState[mentalAttitudeIndex]
-      //       return expectation(estimation(state, overAgentID, mentalAttitudeIndex))
-      //     }
-      //     return map(estimateReward, agentArr)
-      //   }
-      //   let rewardsByAttitudeArr = mapIndexed(computeRewardsFromAttitude, ofAgentMentalUtility)
-      //   info("computeMentalRewards(): about to join " + arrayToString(rewardsByAttitudeArr))
-      //   return rewardsByAttitudeArr
-      // } else {
-      //   /** now selfAgentID is computing (estimation) ofAgentID's mental rewards
-      //    * this is nested reasoning and we simplify it by assuming that selfAgentID
-      //    * uses
-      //    * * his mental state estimations to estimate ofAgentID's own mental state
-      //    * * estimation from snapshot to estimate ofAgentID's estimations of
-      //    * selfAdgentID's mental state
-      //    * * his own estimations to estimate ofAgentID's estimation of other
-      //    * agents' mental state
-      //    */
-      //   let estimateRewardsFromAttitude = function (mentalAttitudeIndex, agentArr) {
-      //     /** i'th mental attitude, agentArr identifies agents whose
-      //      * mental state we care about */
-      //     let estimateReward = function(overAgentID) {
-      //       /** j identifies agent whose mental state we're trying to
-      //        * estimate */
-      //       if (overAgentID === selfAgentID) {
-      //         return nestedEstimation(state, mentalAttitudeIndex, mentalSnapshot)
-      //       }
-      //       return expectation(estimation(state, overAgentID, mentalAttitudeIndex))
-      //     }
-      //     return map(estimateReward, agentArr)
-      //   }
-      //   let rewardsByAttitudeArr = mapIndexed(estimateRewardsFromAttitude, ofAgentMentalUtility)
-      //   info("computeMentalRewards(): about to join " + arrayToString(rewardsByAttitudeArr))
-      //   return rewardsByAttitudeArr
-      // }
     }
 
     let computeMentalState = function(state, belief, mentalAttitudeIndex) {
@@ -265,19 +230,6 @@ let makeCSMG = function (gameSetup, externalParams) {
       info("mentalState(): computed " + result)
       return result
     }
-
-    // /** returns array of values of mental states */
-    // let computeMentalState = function (state, belief) {
-    //   info("computeMentalState(): state=" + stateToString(state) +
-    //     ", belief: " + beliefToString(belief, selfAgentID, goalCoeffsNumberByAgent))
-    //   let f = function (mentalStateComputeFn) {
-    //     info("call mentalStateComputeFn for agent " + selfAgentID)
-    //     return mentalStateComputeFn(selfAgentID, belief, state)
-    //   }
-    //   let result = map(f, mentalStateArr)
-    //   info("computeMentalState(): returning")
-    //   return result
-    // }
 
     /** returns the estimated value of this agent's mental state (identified
      * by *mentalAttitudeIndex*), computed using mental state dynamics
@@ -315,27 +267,14 @@ let makeCSMG = function (gameSetup, externalParams) {
       return result
     }
 
-    // let computeMentalRewardRecFromSnapshot = dp.cache(function (state, mentalSnapshot) {
-    //   assertDefined(mentalSnapshot,
-    //     "mentalRewardRecFromSnapshot: Mental snapshot undefined!")
-    //   let snapState = mentalSnapshot.state
-    //   let snapValues = mentalSnapshot.values
-    //   if (_.isEqual(state, snapState)) {
-    //     return snapValues
-    //   }
-    //   let prevState = getPreviousState(state)
-    //   let lastAction = getLastAction(state)
-    //   let prevValues = computeMentalRewardRecFromSnapshot(prevState, mentalSnapshot)
-    //   let updateValue = function (updateFn, prevValue) {
-    //     return updateFn(prevValue, selfAgentID, prevState, lastAction)
-    //   }
-    //   let curValues = map2(updateValue, estimationHeuristicsArr, prevValues)
-    //   return curValues
-    // })
 
     /** computes this agent's (selfAgentID) estimation of *ofAgentID*
-     * mental state (attitude *rewardIndex*) */
-    let estimation =
+     * mental state (attitude *rewardIndex*)
+     * @param state {State}
+     * @param ofAgentID {Int}
+     * @param rewardIndex {Int}
+     * @returns mentalStateEstimation {Distribution} */
+    let estimateMentalState =
         dp.cache(function(state, ofAgentID, rewardIndex) {
         info("estimation(): state=" + stateToString(state) +
           ", ofAgentID=" + ofAgentID + ", rewardIndex=" + rewardIndex)
@@ -348,7 +287,7 @@ let makeCSMG = function (gameSetup, externalParams) {
           return initialEstimations[ofAgentID][rewardIndex]
         }
         let prevState = getPreviousState(state)
-        let prevEstimation = estimation(prevState, ofAgentID, rewardIndex)
+        let prevEstimation = estimateMentalState(prevState, ofAgentID, rewardIndex)
         let updateEstimation = function (updateFn, prevEstimation) {
           return Infer({method: 'enumerate'}, function () {
             assertHasType(prevEstimation, DIST_TYPE,
@@ -367,53 +306,12 @@ let makeCSMG = function (gameSetup, externalParams) {
         return result
       })
 
-    // let computeMentalStateEstimations = dp.cache(function (state, ofAgentID) {
-    //   if (isInitial(state)) return initialEstimations[ofAgentID]
-    //   let prevState = getPreviousState(state)
-    //   let lastAction = getLastAction(state)
-    //   let prevEstimations = computeMentalStateEstimations(prevState, ofAgentID)
-    //   let updateEstimation = function (updateFn, prevEstimation) {
-    //     return Infer({method: 'enumerate'}, function () {
-    //       let prevValue = sample(prevEstimation)
-    //       return updateFn(prevValue, other(selfAgentID), prevState, lastAction)
-    //     })
-    //   }
-    //   let curEstimations = map2(updateEstimation, estimationHeuristicsArr, prevEstimations)
-    //   return curEstimations
-    // })
-
     return {
       computeMentalRewards,
-      computeMentalState
-      // mentalUtilities /** hacky, should not be here */
+      computeMentalState,
+      estimateMentalState
     }
   }
-
-  /** Compute utility assuming only reward identified by index counts
-   * @param  rewards {Object}   must specify physical and mental rewards
-   * @param  index   {Integer}  identifies the reward, it may be physical
-   *                            or mental
-   * @return          {Number}  utility
-   *  */
-  // let utilityAtIndex = function(rewards, index) {
-  //   info("utilityAtIndex(): rewards: " + arrayToString(rewards) +
-  //   ", index: " + index)
-  //   let physicalNo = rewards.physical.length
-  //   if (index < physicalNo) {
-  //     let rewardUtilityFn = rewardUtilityFunctions.physical[index]
-  //     return rewardUtilityFn(rewards.physical[index])
-  //   }
-  //   let mentalIndex = index - physicalNo
-  //   let indexes = arrayConcat(mapIndexed(function(idx, rews) {
-  //     return repeat(rews.length, function() { return idx })
-  //   }, rewards.mental))
-  //   let rewardUtilityFn = rewardUtilityFunctions.mental[indexes[mentalIndex]]
-  //   let mentalRewardsFlattened = arrayConcat(rewards.mental)
-  //   let utility = rewardUtilityFn(mentalRewardsFlattened[mentalIndex])
-  //   info("utilityAtIndex(): returning " + utility + " of reward " +
-  //     mentalRewardsFlattened[mentalIndex])
-  //   return utility
-  // }
 
   /** Computes mental utility given a nested array of rewards
    * (mentalRewards) which is indexed by mentalAttitude
@@ -437,10 +335,10 @@ let makeCSMG = function (gameSetup, externalParams) {
       assertBetween(indexOpt, 0, goalCoeffs.length-1,
         "physicalUtilityFn(): index out of bounds: " + indexOpt +
       "; expected between 0 and " + (goalCoeffs.length - 1))
-      return goalCoeffs[indexOpt] * apply(rewardUtilityFunctions.physical[indexOpt], physicalRewards[indexOpt])
+      return goalCoeffs[indexOpt] * apply1(rewardUtilityFunctions.physical[indexOpt], physicalRewards[indexOpt])
     }
     let physicalRewardUtilities =
-      map2(apply, rewardUtilityFunctions.physical, physicalRewards)
+      map2(apply1, rewardUtilityFunctions.physical, physicalRewards)
     let utility = sum(map2(multiply, goalCoeffs, physicalRewardUtilities))
     return utility
   }
@@ -475,41 +373,6 @@ let makeCSMG = function (gameSetup, externalParams) {
     return utility
   }
 
-  // let utilityFnOld = function (goalCoeffs, rewards) {
-  //   info("utilityFn(): goalCoeffs: " + arrayToString(goalCoeffs) +
-  //     ", rewards: " + arrayToString(rewards))
-  //   assertDefined(goalCoeffs, "utilityFn(): goalCoeffs undefined")
-  //   assertDefined(rewards, "utilityFn(): rewards undefined")
-  //   // TODO: hacky, remove in future
-  //   let rewardsNo = sum(map(function(rewardOrArray) {
-  //     return _top.Array.isArray(rewardOrArray) ? rewardOrArray.length : 1
-  //   }, rewards))
-  //   assertEqual(goalCoeffs.length, rewardsNo,
-  //     "Dimension of goal coefficients= " + goalCoeffs.length +
-  //     " doesn't match rewards= " + rewards.length)
-  //   /** TODO: this is hacky and should be fixed */
-  //   let physicalNo = params.numberOfRewards.physical
-  //   let mentalNo = params.numberOfRewards.mental
-  //   let total = physicalNo + mentalNo
-  //   assert(total === rewardUtilityFunctions.length,
-  //     "utilityFn(): physicalNo + mentalNo = " + total +
-  //     ", rewardUtilityfunctions.length = " + rewardUtilityFunctions.length +
-  //   "; expected equal")
-  //   let physicalRewardUtilities =
-  //     map2(apply, rewardUtilityFunctions.slice(0, physicalNo), rewards.slice(0, physicalNo))
-  //   let mentalRewardUtilities = (goalCoeffs.length === physicalNo) ? [] :
-  //     arrayConcat(map2(function(rewardUtilFn, rewardsArr) {
-  //     return map(function(reward) {
-  //       return rewardUtilFn(reward)
-  //     }, rewardsArr)
-  //   }, rewardUtilityFunctions.slice(physicalNo, total), rewards.slice(physicalNo, total)))
-  //   let rewardUtilities = physicalRewardUtilities.concat(mentalRewardUtilities)
-  //   // let rewardUtilities = map2(apply, rewardUtilityFunctions, rewards)
-  //   let result = sum(map2(multiply, goalCoeffs, rewardUtilities))
-  //   info("utility computed: " + result)
-  //   return result
-  // }
-
   let updatedParams = extend(params, {
     goalCoeffsNumberByAgent,
     beliefRepresentation
@@ -529,6 +392,7 @@ let makeCSMG = function (gameSetup, externalParams) {
     getPhysicalRewardStructure,
     getMentalRewardStructure,
     utilityFns,
+    heuristics,
     // utilityAtIndex,
     params: updatedParams
   }

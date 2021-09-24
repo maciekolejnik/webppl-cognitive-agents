@@ -5,8 +5,24 @@ let multiply = function(a,b) {
   return a * b
 }
 
-let apply = function(f,x) {
+let apply0 = function(f) {
+  return f()
+}
+
+let apply1 = function(f, x) {
   return f(x)
+}
+
+let apply2 = function(f, x, y) {
+  return f(x, y)
+}
+
+let apply3 = function(f, x, y, z) {
+  return f(x, y, z)
+}
+
+let apply4 = function(f, x, y, z, a) {
+  return f(x, y, z, a)
 }
 
 let add = function(a,b) {

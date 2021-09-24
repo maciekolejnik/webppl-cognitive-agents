@@ -119,6 +119,11 @@ let makeTrustCSMG = function(gameSpecificParams) {
     return (state.turn === 'investor') ? 0 : 1
   }
 
+  let stateToString = function (state) {
+    return "{invs: " + arrayToString(state.investments) +
+      ", rets: " + arrayToString(state.returns) + "}"
+  }
+
   /** Compulsory API of a game */
   let API = function() {
     let getPreviousState = function (state) {
@@ -145,11 +150,6 @@ let makeTrustCSMG = function(gameSpecificParams) {
 
     let isInitial = function (state) {
       return state.investments.length === 0 && state.returns.length === 0
-    }
-
-    let stateToString = function (state) {
-      return "{invs: " + arrayToString(state.investments) +
-        ", rets: " + arrayToString(state.returns) + "}"
     }
 
     let API = {
@@ -301,6 +301,124 @@ let makeTrustCSMG = function(gameSpecificParams) {
     }
   }()
 
+
+  let heuristics = function() {
+    /** actionHeuristic
+     * This captures how *estimatingAgent* estimates the probabilities of actions
+     * of their opponent (*estimatedAgent*) based on a heuristic.
+     * In this case, investee
+     * assumes that investor's action will be proportional to investor's
+     * trust towards investee.
+     * On the other hand, investor assumes that investee's return will be
+     * proportional to investor's trust towards investee.
+     */
+    let action = function() {
+      let applies = function(state, estimatingAgentID, estimatedAgentID) {
+        return true
+      }
+
+      let computeOpponentAction = function(estimatingAgentID, estimatedAgentID, action, state, getMentalState, getMentalEstimation) {
+        info("actionHeuristic(" + estimatingAgentID + "," +
+          estimatedAgentID + "," + action + ") called at state " + stateToString(state))
+        assert(turn(state) === estimatedAgentID,
+          "actionHeuristic(): it must be estimatedAgent's turn at state given, " +
+          "but estimatedAgentID=" + estimatedAgentID + ", turn=" + turn(state))
+        assert(estimatedAgentID !== estimatingAgentID,
+          "actionHeuristic(): estimating and estimated agent IDs must be different; " +
+          "found both=" + estimatedAgentID)
+        if (turn(state) === 0) {
+          // investee estimates investor's investment
+          // get estimated trust of investor
+          let trustEst = getMentalEstimation(state, estimatedAgentID, 0)
+          let trustExp = expectation(trustEst)
+          let sigma = 0.6
+          let mu = trustExp * investorEndowment
+          let score = Gaussian({mu, sigma}).score(action)
+          return score
+        }
+        /** investor estimates investee's return (assumed
+         * proportional to investor's trust)  */
+        let trust = getMentalState(state, 0)
+        let sigma = 1
+        assert(state.investments.length > 0,
+          "actionHeuristic(): called in state " + stateToString(state) +
+          " with investee's turn, hence expecting an investment to have occurred; " +
+          "however, no investment is recorded")
+        let investment = state.investments[0]
+        let mu = trust * (investment + 1)
+        let score = Gaussian({mu, sigma}).score(action)
+        return score
+      }
+
+      return {
+        applies,
+        computeOpponentAction
+      }
+    }()
+
+
+    let belief = function() {
+
+      /** does heuristic apply for updating belief of
+        *agent* when *action* taken at state */
+      let applies = function(state, action, agent) {
+        // applies only when investor observes investee's return
+        return turn(state) === 1 && agent === 0
+      }
+
+      let updateBelief = function(fullBelief, state, action) {
+        let turn = turn(state)
+        assert(turn === 1, "updateBeliefDirichlet in trust " +
+          "game specification: expected to be called for investor at investee's " +
+          "turn, but called on investor's turn")
+        let max = maxPossibleTransfer(state)
+        let prop = action / max
+        let individualBelief = retrieveBeliefOver(turn, fullBelief)
+
+        let updateBeliefDiscrete = function(indBeliefVal) {
+          // beliefVal is a discrete distribution over goal coeff vectors
+          let updatedBelief = Infer({method: 'enumerate'}, function () {
+            let goalCoeffs = sample(indBeliefVal)
+            let trustCoeff = goalCoeffs[1]
+            factor(Math.abs(trustCoeff - prop))
+            return goalCoeffs
+          })
+          return updatedBelief
+        }
+
+        let updateBeliefDirichlet = function(indBeliefVal) {
+          let trustCoeffInc = Math.pow(prop, 1.5)
+          assertBetween(trustCoeffInc, 0, 1, "updateBeliefDirichlet " +
+            "in trust game spec: trustCoeffInc expected in [0,1]; found: " + trustCoeffInc)
+          let inc = [1 - trustCoeffInc, trustCoeffInc]
+          return map2(add, indBeliefVal, inc)
+        }
+
+        let appropriateFn = {
+          'discrete': updateBeliefDiscrete,
+          'dirichlet': updateBeliefDirichlet
+        }[fullBelief.representation]
+        let updatedIndBeliefVal = appropriateFn(individualBelief.value)
+        let updatedBeliefVal = arrayReplace(fullBelief.value, turn, updatedIndBeliefVal)
+        return {
+          representation: fullBelief.representation,
+          value: updatedBeliefVal
+        }
+      }
+
+      return {
+        applies,
+        updateBelief
+      }
+    }()
+
+    return {
+      action,
+      belief
+    }
+  }()
+
+
   let initialState = {
     turn: 'investor',
     investments: [],
@@ -336,6 +454,7 @@ let makeTrustCSMG = function(gameSpecificParams) {
     initialState,
     physicalRewardStructure,
     mentalStateDynamics,
+    heuristics,
     rewardUtilityFunctions,
     API,
     params
@@ -379,7 +498,7 @@ let makeTrustCSMG = function(gameSpecificParams) {
  *    but the latest investment is not included
  */
 let trustChangeAfterInvestment = function(investment, investorEndowment, previousEstimate, history) {
-  debug("trustChangeAfterInvestment(" + investment + "," + investorEndowment + "," + previousEstimate + ")")
+  info("trustChangeAfterInvestment(" + investment + "," + investorEndowment + "," + previousEstimate + ")")
   let investProportion = investment / investorEndowment
   let newEstimate1 = trustChangeActionVsExpectation(investProportion, previousEstimate)
 
@@ -397,18 +516,10 @@ let trustChangeAfterInvestment = function(investment, investorEndowment, previou
 
 /** @param action expressed as a proportion, i.e. in [0,1] */
 let trustChangeActionVsExpectation = function(action, oldTrust) {
-  debug("trustChangeActionVsExpectation(" + action + "," + oldTrust + ")")
-  /** the gaussian shift will be characterised by the following quantities
-   * - PEAK_X - the x value for which gaussian peaks (slightly bigger than *oldTrust*)
-   * - PEAK_Y - the y value achieved at the peak (represents maximal trust increase)
-   * - LEFT_WINDOW - distance on x axis in minus direction where gaussian stays positive
-   * - RIGHT_WINDOW - distance on x axis in plus direction where gaussian stays positive
-   */
+  info("trustChangeActionVsExpectation(" + action + "," + oldTrust + ")")
 
   // currently use exp log curve rather than gaussian
   return expMinusExpCurveCrossingIdentity(action, oldTrust)
-
-  // let PEAK_X =
 
   let PEAK = 0.9
   let MAX_INCREASE = 0.25
@@ -422,16 +533,7 @@ let trustChangeActionVsExpectation = function(action, oldTrust) {
   let a = d + peakY
   let c = action === 0 ? 1 : action / (Math.sqrt(-2 * Math.log(d/a)))
 
-
-
-  // let b = PEAK * action
-  // assert(b >= 0 && b < 1, "updateTrustEstimation(): " +
-  //   "b=" + b + "; should be between 0 and 1!")
-  // let d = MAX_DECREASE * Math.sqrt(1-b)
-  // let a = d + MAX_INCREASE * Math.sqrt(1 - b)
-  // let c = WINDOW / (2 * Math.sqrt(2 * Math.log(a/d)))
   let gaussian = getGaussian(a,b,c,d)
-
 
   // new trust is f(oldTrust) where f is identity + gaussian
   let newTrustUnbounded = oldTrust + gaussian(oldTrust)
@@ -444,7 +546,7 @@ let trustChangeActionVsExpectation = function(action, oldTrust) {
  * @param r1 their niceness
  * @param r2 my niceness */
 let trustChangeActionAsResponseToNiceness = function(r1, r2, investorEndowment, trust) {
-  debug("trustChangeActionAsResponseToNiceness(" + r1 + "," + r2 + "," + investorEndowment + "," + trust + ")")
+  info("trustChangeActionAsResponseToNiceness(" + r1 + "," + r2 + "," + investorEndowment + "," + trust + ")")
   /** -1 means niceness couldn't be computed so skip */
   assert(r1 >= -1 && r1 <= 1, "trustChangeActionAsResponseToNiceness(): " +
     "r1 expected between 0 and 2; found: " + r1)
@@ -466,31 +568,11 @@ let trustChangeActionAsResponseToNiceness = function(r1, r2, investorEndowment, 
   // between my niceness and their niceness)
   // if i was not nicer than him, set b to nearly 0
   let b = r2 > r1 ? r2-r1 : 0.0001
-  // let b = Math.abs(r1 - r2)
   return expCurveForBCrossOne(b, trust)
-
-
-  // BELOW IS OLD AND OVERLY COMPLICATED
-  if (r2 > 1 || r2 >= r1) {
-    /** if I'm nice or nicer then them then trust should go up */
-    let factor = (r2 <= 1) ? 1 + 0.4 * (1 - r2) : 1 - (r2 - 1) / (investorEndowment - 1) * 0.3
-    assert(factor >= 0.7 && factor <= 1.4,
-      "updateTrustEstimation(): factor=" + factor +
-      "; expected between 0.7 and 1.4!" + auxInfo)
-    let result = Math.exp(factor * trust - factor)
-    return result
-  }
-  /** otherwise, trust decreases */
-  let factor = 0.3 + 0.4 * (r1 - r2) / 2
-  assert(factor >= 0.3 && factor <= 0.7,
-    "updateTrustEstimation(): factor=" + factor +
-    "; expected between 0.3 and 0.7")
-  let result = Math.log((Math.exp(factor) - 1) * trust + 1)
-  return result
 }
 
 let computeInvestorLastMoveNiceness = function(investment, history) {
-  debug("computeInvestorLastMoveNiceness(" + investment + ", " + arrayToString(history) + ")")
+  info("computeInvestorLastMoveNiceness(" + investment + ", " + arrayToString(history) + ")")
   if (history.length === 0)
     return 0
   // check if previous investment was 0
@@ -512,7 +594,7 @@ let computeInvestorLastMoveNiceness = function(investment, history) {
  * @returns [niceness, certainty] ([Int, Int])
  */
 let computeInvesteeNicenessAndCertainty = function(history) {
-  debug("computeInvesteeNicenessAndCertainty(" + arrayToString(history) + ")")
+  info("computeInvesteeNicenessAndCertainty(" + arrayToString(history) + ")")
   let SMOOTHING_FACTOR = 0.3
   let nonZeroPairs = filter(function(x) { return x[0] !== 0 || x[1] !== 0}, history)
   let numberOfData = nonZeroPairs.length
@@ -556,24 +638,35 @@ let trustChangeAfterReturn = function(returned, investment, previousEstimate) {
   assertBetween(returnProportion, 0, 2,
     "trustChangeAfterReturn(): returnProportion expected in " +
     "[0,2]; found: " + returnProportion)
-  if (returned > investment + 1) {
-    let K = (investment + 1) / investment
-    // let a = 2 * K / (1-K)
-    // let b = K / (K-2)
-    // let crossPoint = a * returnProportion + b
-    let crossPoint = 1 + K - returnProportion
-    assertBetween(crossPoint, 0, 1,
-      "trustChangeAfterReturn(): case high return, crossPoint=" + crossPoint)
-    return expLogCurveCrossingIdentity(crossPoint, previousEstimate)
-  }
-  if (returned <= investment) {
-    let crossPoint = Math.pow(returnProportion / 2, 2)
-    assertBetween(crossPoint, 0, 1,
-      "trustChangeAfterReturn(): case lowish return, crossPoint=" + crossPoint)
-    return expLogCurveCrossingIdentity(crossPoint, previousEstimate)
-  }
-  /** case (i) */
-  return Math.exp(previousEstimate - 1)
+  // determine the point where 'exp-minus-exp' curve crosses identity
+  let crossPoint = returned > investment ?
+    1 + (investment + 1) / investment - returnProportion :
+    Math.pow(returnProportion / 2, 2)
+  assertBetween(crossPoint, 0, 1,
+    "trustChangeAfterReturn(): case high return, crossPoint=" + crossPoint)
+  // return expLogCurveCrossingIdentity(crossPoint, previousEstimate)
+  return expMinusExpCurveCrossingIdentity(crossPoint, previousEstimate)
+
+  // if (returned > investment + 1) {
+  //   let K = (investment + 1) / investment
+  //   // let a = 2 * K / (1-K)
+  //   // let b = K / (K-2)
+  //   // let crossPoint = a * returnProportion + b
+  //   let crossPoint = 1 + K - returnProportion
+  //   assertBetween(crossPoint, 0, 1,
+  //     "trustChangeAfterReturn(): case high return, crossPoint=" + crossPoint)
+  //   // return expLogCurveCrossingIdentity(crossPoint, previousEstimate)
+  //   return expMinusExpCurveCrossingIdentity(crossPoint, previousEstimate)
+  // }
+  // if (returned <= investment) {
+  //   let crossPoint = Math.pow(returnProportion / 2, 2)
+  //   assertBetween(crossPoint, 0, 1,
+  //     "trustChangeAfterReturn(): case lowish return, crossPoint=" + crossPoint)
+  //   // return expLogCurveCrossingIdentity(crossPoint, previousEstimate)
+  //   return expMinusExpCurveCrossingIdentity(crossPoint, previousEstimate)
+  // }
+  // /** case (i) */
+  // return Math.exp(previousEstimate - 1)
 }
 
 /** This basically expresses a curve on [0,1] that starts (at x=0)
@@ -653,7 +746,7 @@ let expCurveForBCrossZero = function(b,x) {
 let expMinusExpCurveCrossingIdentity = function(crossPoint,x) {
   let b = (x <= crossPoint) ?
     Math.exp(Math.exp(1-crossPoint) * (1-crossPoint) * (1-crossPoint)) :
-    -Math.exp(crossPoint * Math.exp(crossPoint))
+    -Math.exp(crossPoint * Math.exp(crossPoint))-1
   let a = 1 / (b * Math.exp(b * crossPoint))
   let c = crossPoint - a * Math.exp(b * crossPoint)
   return a * Math.exp(b * x) + c
@@ -664,11 +757,6 @@ let getGaussian = function(a,b,c,d) {
     return a * Math.exp(-Math.pow((x-b), 2) / (2 * Math.pow(c,2))) - d
   }
   return f
-}
-
-let getGaussianH = function(peakX, peakY, leftWindow, rightWindow) {
-  let b = peakX
-
 }
 
 /** similar to the above except it introduces quadratic f3(x) = rx^2

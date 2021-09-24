@@ -60,7 +60,8 @@ let individualBeliefToString = function(individualBelief, numberOfGoalCoeffs) {
  */
 let retrieveBeliefOver = function(agentID, fullBelief) {
   aux("retrieveBeliefOver(): agentID=" + agentID + ", belief=" + toString(fullBelief))
-  assertIsArray(fullBelief.value, ANY_TYPE, -1, "belief.value unexpected")
+  assertIsArray(fullBelief.value, ANY_TYPE, -1,
+    "belief.value should be an array of ")
   assert(agentID < fullBelief.value.length)
   let individualBelief = {
     representation: fullBelief.representation,

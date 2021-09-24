@@ -448,7 +448,7 @@ let printAgentsSetup = function (agents, names) {
 }
 
 /** Few auxiliary functions to facilitate creating scenarios */
-let generateParams = function(goalCoeffs, alpha, discountFactor, lookAhead) {
+let generateParams = function(goalCoeffs, alpha, discountFactor, lookAhead, usesHeuristics) {
   return {
     /** format [physical goal, mental goal] */
     goalCoeffs,
@@ -456,7 +456,8 @@ let generateParams = function(goalCoeffs, alpha, discountFactor, lookAhead) {
       alpha,
       discountFactor,
       lookAhead
-    }
+    },
+    usesHeuristics
   }
 }
 

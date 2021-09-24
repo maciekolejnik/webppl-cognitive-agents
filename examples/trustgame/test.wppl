@@ -161,6 +161,18 @@ let testTrustDynamics = function() {
   /** big return is a bit suspicious */
   assertTrustBetween(0.5, 0.4, 0.6, [2], 4)
 
+  assertTrustBetween(0.57, 0.5, 0.6, [4,0,4,0,4], 8)
+  assertTrustBetween(0.57, 0.5, 0.6, [4,0,4,0,4], 7)
+  // assertTrustIncreases(0.57, [4,0,4,0,4], 7)
+  assertTrustIncreases(0.57, [4,0,4,0,4], 6)
+  assertTrustIncreases(0.57, [4,0,4,0,4], 5)
+  assertTrustDecreases(0.57, [4,0,4,0,4], 4)
+  assertTrustDecreases(0.57, [4,0,4,0,4], 3)
+  assertTrustDecreases(0.57, [4,0,4,0,4], 2)
+  assertTrustDecreases(0.57, [4,0,4,0,4], 1)
+  assertTrustDecreases(0.57, [4,0,4,0,4], 0)
+
+  assertTrustBetween(0.5, 0.2, 0.35, [4], 0)
 }
 
 let testTrustDynamicsConman = function() {
