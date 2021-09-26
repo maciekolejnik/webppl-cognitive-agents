@@ -339,13 +339,17 @@ let makeTrustCSMG = function(gameSpecificParams) {
         /** investor estimates investee's return (assumed
          * proportional to investor's trust)  */
         let trust = getMentalState(state, 0)
-        let sigma = 1
+        // let sigma = 1
         assert(state.investments.length > 0,
           "actionHeuristic(): called in state " + stateToString(state) +
           " with investee's turn, hence expecting an investment to have occurred; " +
           "however, no investment is recorded")
         let investment = state.investments[0]
-        let mu = trust * (investment + 1)
+        // let mu = trust * 2 * investment
+        let mu = Math.pow(trust, 0.4) * investment
+        let sigmaNeg = investment * (1 - trust)
+        let sigmaPos = investment * Math.pow(trust, 0.5)
+        let sigma = action > mu ? sigmaPos : sigmaNeg
         let score = Gaussian({mu, sigma}).score(action)
         return score
       }
@@ -387,10 +391,10 @@ let makeTrustCSMG = function(gameSpecificParams) {
         }
 
         let updateBeliefDirichlet = function(indBeliefVal) {
-          let trustCoeffInc = Math.pow(prop, 1.5)
+          let trustCoeffInc = Math.pow(prop, 0.8)
           assertBetween(trustCoeffInc, 0, 1, "updateBeliefDirichlet " +
             "in trust game spec: trustCoeffInc expected in [0,1]; found: " + trustCoeffInc)
-          let inc = [1 - trustCoeffInc, trustCoeffInc]
+          let inc = [2 - 2*trustCoeffInc, 2*trustCoeffInc]
           return map2(add, indBeliefVal, inc)
         }
 
@@ -502,14 +506,14 @@ let trustChangeAfterInvestment = function(investment, investorEndowment, previou
   let investProportion = investment / investorEndowment
   let newEstimate1 = trustChangeActionVsExpectation(investProportion, previousEstimate)
 
-  let nicenessAndCertainty = computeInvesteeNicenessAndCertainty(history)
-  let theirNiceness = nicenessAndCertainty[0]
+  let niceness = computeInvesteeNicenessAndCertainty(history)
+  let theirNiceness = niceness.value
   // myNiceness is based on comparing this investment to previous investment
   let myNiceness = computeInvestorLastMoveNiceness(investment, history)
   // let myNiceness = history.length === 0 ? 0 : investment / (history[0][0] || 1)
   let newEstimate2 = trustChangeActionAsResponseToNiceness(theirNiceness, myNiceness, investorEndowment, previousEstimate)
 
-  let certainty = nicenessAndCertainty[1]
+  let certainty = niceness.certainty
   let newEstimate = newEstimate1 * (1 - certainty) + newEstimate2 * certainty
   return newEstimate
 }
@@ -598,10 +602,9 @@ let computeInvesteeNicenessAndCertainty = function(history) {
   let SMOOTHING_FACTOR = 0.3
   let nonZeroPairs = filter(function(x) { return x[0] !== 0 || x[1] !== 0}, history)
   let numberOfData = nonZeroPairs.length
-  if (numberOfData === 0) return [0,0]
+  if (numberOfData === 0) return { value: 0, certainty: 0}
   // this asymptotically approaches 1
-  let certainty = 2 / Math.PI * Math.atan(numberOfData/6)
-  let niceness = reduceL(function (nicenessSoFar, el) {
+  let value = reduceL(function (nicenessSoFar, el) {
     let invested = el[0]
     let returned = el[1]
     let nicenessThisRound = returned / invested - 1
@@ -612,9 +615,13 @@ let computeInvesteeNicenessAndCertainty = function(history) {
       SMOOTHING_FACTOR * nicenessThisRound + (1 - SMOOTHING_FACTOR) * nicenessSoFar
     return updatedNiceness
   }, -2, nonZeroPairs)
-  assert(niceness >= -1 && niceness <= 1, "computeInvesteeNicenessAndCertainty(): " +
-    "niceness expected between -1 and 1; found: " + niceness)
-  return [niceness, certainty]
+  assert(value >= -1 && value <= 1, "computeInvesteeNicenessAndCertainty(): " +
+    "niceness expected between -1 and 1; found: " + value)
+  // certainty depends on the number of data but also on the computed niceness
+  // the more extreme (closer to 1/-1 niceness is, the more it will 'count')
+  let atanCoeff = 1.2 / (Math.abs(value) + 0.2)
+  let certainty = 2 / Math.PI * Math.atan(numberOfData / atanCoeff)
+  return { value, certainty }
 }
 
 /** trustChangeAfterReturn
@@ -639,9 +646,12 @@ let trustChangeAfterReturn = function(returned, investment, previousEstimate) {
     "trustChangeAfterReturn(): returnProportion expected in " +
     "[0,2]; found: " + returnProportion)
   // determine the point where 'exp-minus-exp' curve crosses identity
+  // if (returned === investment)
+  //   return expCurveForBCrossOne(0.2, previousEstimate)
   let crossPoint = returned > investment ?
-    1 + (investment + 1) / investment - returnProportion :
-    Math.pow(returnProportion / 2, 2)
+    // 1 + (investment + 1) / investment - returnProportion :
+    1 - (1 - previousEstimate) * (returned - (investment + 1)) / investment :
+    Math.pow(0.9 * returnProportion, 2)
   assertBetween(crossPoint, 0, 1,
     "trustChangeAfterReturn(): case high return, crossPoint=" + crossPoint)
   // return expLogCurveCrossingIdentity(crossPoint, previousEstimate)

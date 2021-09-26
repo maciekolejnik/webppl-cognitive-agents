@@ -277,9 +277,9 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       // as proportions and add a total of one
       let actionProbsSum = sum(actionProbs)
       let actionProbsNormalised = map(function (prob) {
-        return (actionProbsSum === 0) ? 0 : prob / actionProbsSum
+        return (actionProbsSum === 0) ? 0 : 2 * prob / actionProbsSum
       }, actionProbs)
-      assert(actionProbsSum === 0 || approxEqual(sum(actionProbsNormalised), 1),
+      assert(actionProbsSum === 0 || approxEqual(sum(actionProbsNormalised), 2),
         "Normalised action probabilities in updateBeliefDirichlet " +
         "don't sum to 1; found: " + sum(actionProbsNormalised))
       let updatedBeliefOverActingAgent =

@@ -45,7 +45,7 @@ let run = function(experiment, makeGame, argv) {
   let callbacks = experiment.callbacks
   let getScenarios = experiment.getScenarios
   let scenarios = getScenarios(params)
-  let wrapUp = isDefined(experiment.wrapUp) ? experiment.wrapUp : getConstantFn(undefined)
+  let wrapUp = isDefined(experiment.wrapUp) ? experiment.wrapUp : identity
   let runsStr = argv.runs
   let runs = (isDefined(runsStr)) ? parseInt(runsStr) : (experiment.runsDefault || 1)
   assert(runs > 0, "runs must be greater than 0")

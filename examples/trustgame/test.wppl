@@ -81,6 +81,19 @@ let testTrustDynamics = function() {
     return oldTrust - newTrust
   }
 
+  /** first test auxiliary functions */
+  let assertInvesteeNicenessBetween = function(history, lo, hi) {
+    let niceness = computeInvesteeNicenessAndCertainty(history).value
+    let certainty = computeInvesteeNicenessAndCertainty(history).certainty
+    let msg = "investee niceness after executing history " + arrayToString(history)
+    + " is " + niceness + " (certainty: " + certainty + ")"
+    assertBetween(niceness, lo, hi, "FAIL: " + msg + "; expected between " +
+      lo + " and " + hi, "PASS: " + msg + ", as expected")
+  }
+
+  /** investee niceness */
+  assertInvesteeNicenessBetween([[4,0], [4,0]], -1, -1)
+
 
   /** below we check that various trust dynamics properties hold */
 
@@ -151,9 +164,11 @@ let testTrustDynamics = function() {
 
   let dec1 = assertTrustDecreases(0.5, [], 1)
   let dec2 = assertTrustDecreases(0.5, [2,2], 1)
-  let dec3 = assertTrustDecreases(0.5, [2,2,1,0], 1)
+  let dec3 = assertTrustDecreases(0.5, [2,2,1,1], 1)
   assert(dec1 > dec2 && dec2 > dec3, "FAIL: trust should decrease slower " +
     "as the game progresses, instead found: dec1=" + dec1 + ", dec2=" + dec2 + ", dec3=" + dec3)
+
+  assertTrustBetween(1, 0.9, 1, [4,0,4,0], 2)
 
   /** below considers from investee's point of view */
   assertTrustDecreases(0.5, [2], 2)
