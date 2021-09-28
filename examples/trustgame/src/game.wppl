@@ -148,6 +148,10 @@ let makeTrustCSMG = function(gameSpecificParams) {
         return state.returns[0]
     }
 
+    let endsRound = function(state, action) {
+      return state.investments.length > state.returns.length
+    }
+
     let isInitial = function (state) {
       return state.investments.length === 0 && state.returns.length === 0
     }
@@ -155,6 +159,7 @@ let makeTrustCSMG = function(gameSpecificParams) {
     let API = {
       getPreviousState,
       getLastAction,
+      endsRound,
       isInitial,
       turn,
       stateToString
@@ -317,6 +322,36 @@ let makeTrustCSMG = function(gameSpecificParams) {
         return true
       }
 
+      let erf = function(y) {
+        let x = Math.abs(y)
+        let pow = function(a,b) {
+          return Math.pow(a,b)
+        }
+        let a1 = 0.278393
+        let a2 = 0.230389
+        let a3 = 0.000972
+        let a4 = 0.078108
+        let res = 1 - 1 / pow(1 + a1*x + a2*pow(x,2) + a3*pow(x,3) + a4*pow(x,4), 4)
+        return y > 0 ? res : -res
+      }
+
+      let pdf = function(x) {
+        return Math.exp(Gaussian({mu: 0, sigma: 1}).score(x))
+      }
+
+      let cdf = function(x) {
+        return 0.5 * (1 + erf(x / Math.sqrt(2)))
+      }
+
+      let skewedStandardGaussianDensity = function(alpha, action) {
+        let density = pdf(action) * cdf(alpha * action) / cdf(0)
+        return density
+      }
+
+      let skewedGaussianDensity = function(mu, sigma, alpha, action) {
+        return skewedStandardGaussianDensity(alpha, (action - mu) / sigma) / sigma
+      }
+
       let computeOpponentAction = function(estimatingAgentID, estimatedAgentID, action, state, getMentalState, getMentalEstimation) {
         info("actionHeuristic(" + estimatingAgentID + "," +
           estimatedAgentID + "," + action + ") called at state " + stateToString(state))
@@ -345,13 +380,18 @@ let makeTrustCSMG = function(gameSpecificParams) {
           " with investee's turn, hence expecting an investment to have occurred; " +
           "however, no investment is recorded")
         let investment = state.investments[0]
-        // let mu = trust * 2 * investment
-        let mu = Math.pow(trust, 0.4) * investment
-        let sigmaNeg = investment * (1 - trust)
-        let sigmaPos = investment * Math.pow(trust, 0.5)
-        let sigma = action > mu ? sigmaPos : sigmaNeg
-        let score = Gaussian({mu, sigma}).score(action)
+        let mu = Math.pow(trust, 0.5) * (investment + 1)
+        let sigma = 1 + 2 / Math.PI * Math.atan(investment-1)
+        let score = Math.log(skewedGaussianDensity(mu, sigma, -2 + 4*trust, action))
         return score
+        // return score1(mu, sigma, -0.5 + trust, action)
+        // let mu = trust * 2 * investment
+        // let mu = Math.pow(trust, 0.6) * (investment + 1)
+        // let sigmaNeg = Math.pow(1 - trust, 0.7)
+        // let sigmaPos = investment * Math.pow(trust, 0.3)
+        // let sigma = action > mu ? sigmaPos : sigmaNeg
+        // let score = Gaussian({mu, sigma}).score(action)
+        // return score
       }
 
       return {
@@ -362,7 +402,6 @@ let makeTrustCSMG = function(gameSpecificParams) {
 
 
     let belief = function() {
-
       /** does heuristic apply for updating belief of
         *agent* when *action* taken at state */
       let applies = function(state, action, agent) {

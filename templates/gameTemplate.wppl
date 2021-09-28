@@ -59,6 +59,14 @@ let makeCSMG = function(gameSpecificParams) {
             error("not implemented")
         }
 
+        /** does *action* taken in *state* end a round?
+         * A concept of a round (which is an 'atomic' fragment of a game; it
+         * either gets executed fully or not at all) is introduced so that
+         * discounting can happen after every round, rather than after every move */
+        let endsRound = function (state, action) {
+            error("not implemented")
+        }
+
         /** checks whether *state* is the initial state */
         let isInitial = function (state) {
             error("not implemented")
@@ -80,6 +88,7 @@ let makeCSMG = function(gameSpecificParams) {
         let API = {
             getPreviousState,
             getLastAction,
+            endsRound,
             isInitial,
             turn,
             stateToString

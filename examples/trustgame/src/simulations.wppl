@@ -75,7 +75,7 @@ let gameSpecificParams = {
 }
 
 let options = {
-  horizon: 8,
+  horizon: 10,
   beliefRepresentation: 'dirichlet'
 }
 
@@ -661,16 +661,31 @@ let mturkExperiment = function() {
    */
   // let getBot = function(role, goalCoeffs, lookAhead, belief, trustEst, alphaEst, lookAheadEst) {
   let getBot = function(role, goalCoeffs) {
-    let mean = categorical({vs: [0,2,6,10,14,18,22]})
-    let dev = categorical({vs: [4,8]})
+    // let mean = categorical({vs: [0,2,6,10,14,18,22]})
+    let mean = 50
+    // let dev = categorical({vs: [4,8]})
+    let dev = 8
     let alphaEst = getPositiveNormalDiscretised(mean, dev, 1)
+    // let alphaEst = Delta({v: 100})
     // let lookAhead = categorical({vs: [1,2,3]})
     let lookAhead = 4
-    let belief = categorical({ vs: [[1,1],[1,2],[1.25,1.75],[1.75,1.25],[2,1],[1.5,1.5]]})
+    // let belief = categorical({ vs: [[1,1],[1,2],[1.25,1.75],[1.75,1.25],[2,1],[1.5,1.5]]})
+    // let belief = [1.75,1.25]
+      let belief = [2,1]
     // let belief = [1,4]
-    let trustEst = Delta({v: categorical({vs: [.1,.3,.5,.7,.9]})})
-    // let trustEst = Delta({ v: 1 })
-    let lookAheadEst = Categorical({ps: [1/13,2/13,5/13,5/13], vs: [0,1,2,3]})
+    // let trustEst = Delta({v: categorical({vs: [.1,.3,.5,.7,.9]})})
+    let trustEst = Delta({ v: 0.7 })
+      let getLookaheadEst = function(prior, estimated) {
+          let posterior = Infer({method: 'enumerate'}, function() {
+            let s = sample(prior)
+            factor(-Math.abs(s - estimated))
+            return s
+          })
+          return posterior
+      }
+    // let lookAheadEst = getLookaheadEst(Categorical({ps: [1/14,2/14,5/14,5/14,1/14], vs: [0,1,2,3,4]}), 2)
+    // let lookAheadEst = Categorical({ps: [1/13,2/13,5/13,5/13], vs: [0,1,2,3]})
+    let lookAheadEst = Categorical({ps: [10/10], vs: [3]})
     let botParams = generateParams(goalCoeffs, 100, 0.8, lookAhead, true)
     let botInitialState = generateBotInitialState(role, alphaEst, Delta({v: 0.8}), lookAheadEst, belief, trustEst)
     return {
@@ -683,8 +698,8 @@ let mturkExperiment = function() {
   let INVESTEE = 1
 
   let generateParticipant = function(role) {
-    let moneyCoeff = uniform({a:0, b:1})
-    // let moneyCoeff = 0
+    // let moneyCoeff = uniform({a:0, b:1})
+    let moneyCoeff = 0
     let alpha = uniform({a:5, b:30})
     let lookAhead = categorical({vs: [2,3,4]})
     let params = generateParams([moneyCoeff, 1-moneyCoeff], alpha, 0.8, lookAhead, true)
@@ -743,7 +758,7 @@ let mturkExperiment = function() {
   }
 
   let getSelflessBotAsInvestorScenario = function() {
-    let bot = getBot(INVESTOR, [.2,.8])
+    let bot = getBot(INVESTOR, [.3,.7])
     let participant = generateParticipant(INVESTEE)
     let agents = [bot, participant]
     let name = "Selfless bot as investor"
@@ -751,7 +766,7 @@ let mturkExperiment = function() {
   }
 
   let getSelflessBotAsInvesteeScenario = function() {
-    let bot = getBot(INVESTEE, [.2,.8])
+    let bot = getBot(INVESTEE, [.3,.7])
     let participant = generateParticipant(INVESTOR)
     let agents = [participant, bot]
     let name = "Selfless bot as investee"

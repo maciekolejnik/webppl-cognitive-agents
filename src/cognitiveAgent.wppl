@@ -63,6 +63,8 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
     "makeAgent(): gameAPI.getPreviousState undefined")
   let getLastAction = assertDefined(gameAPI.getLastAction,
     "makeAgent(): gameAPI.getLastAction undefined")
+  let endsRound = assertDefined(gameAPI.endsRound,
+    "makeAgent(): gameAPI.endsRound undefined")
   let stateToString = assertDefined(gameAPI.stateToString,
     "makeAgent(): gameAPI.stateToString undefined")
   let turn = assertDefined(gameAPI.turn,
@@ -486,7 +488,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       toString(availableActions))
     let actionDist = Infer({method: 'enumerate'}, function () {
       let action = uniformDraw(availableActions)
-      if (timeLeft === 0 || availableActions.length === 1) return action
+      if (availableActions.length === 1) return action
       // use heuristic if (i) one is defined, (ii) it's opponent's turn and
       // (iii) we're not updating belief
       let useHeuristic = !thisAgentActs && usesHeuristic && apply3(actionHeuristic.applies, state, selfId, turn) && !cond
@@ -519,6 +521,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
         stateToString(state) + ", for action: " + action + ", computed by " +
         selfId + " for " + ofAgentID + ", with time horizon " + timeLeft +
         ", condition " + (cond === undefined ? "undefined" : cond.value), !INFERENCE_MODE)
+      if (timeLeft === 0) return 0
       let u = actionUtility(state, action, ofAgentID, cond, mentalSnapshot)
       let nextTimeLeft = timeLeft - 1
       let discountFactor = assertDefined(allMetaParams.discountFactor[ofAgentID],
@@ -545,7 +548,8 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       })
       globalStore.indent -= 2
       let futureUtilExp = expectation(futureUtilityDist)
-      let eu = u + discountFactor * futureUtilExp
+      let discount = endsRound(state, action) ? discountFactor : 1
+      let eu = u + discount * futureUtilExp
       debug("EU of " + ofAgentID + " at state " + stateToString(state) +
         " for action " + action + ", with " + timeLeft + " steps left: " + eu,
         (!INFERENCE_MODE && (ofAgentID === selfId && cond === undefined && globalStore.indent === 0)))
