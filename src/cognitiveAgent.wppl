@@ -439,7 +439,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
     let thisAgentActs = turn === selfId
     explain("Agent " + selfId + " computes action at state " +
       stateToString(state), thisAgentActs && !INFERENCE_MODE)
-    assert(!thisAgentActs || condOpt !== undefined,
+    assert(!thisAgentActs || condOpt === undefined,
       "Input to act() doesn't meet precondition: can't compute " +
       "own action under a condition")
     /** prepare mentalSnapshot for future utility computations) */
