@@ -420,7 +420,11 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
     return utility
   })
 
-  /** Compute action (distribution) at state
+  /** Compute action (distribution) at given state from the
+   * perspective of this agent. There are three cases:
+   * - agent computes their own action (state belongs to this agent)
+   * - agent computes their opponent's action
+   * - agent computes their opponent's action under condition
    * It either computes the action (distribution) for this agent (when no @cond
    * passed) or action (distribution) of opponent assuming @cond.
    *
@@ -435,8 +439,9 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
     let thisAgentActs = turn === selfId
     explain("Agent " + selfId + " computes action at state " +
       stateToString(state), thisAgentActs && !INFERENCE_MODE)
-    assert(thisAgentActs || condOpt !== undefined,
-      "Input to act() doesn't meet precondition: condition must be passed")
+    assert(!thisAgentActs || condOpt !== undefined,
+      "Input to act() doesn't meet precondition: can't compute " +
+      "own action under a condition")
     /** prepare mentalSnapshot for future utility computations) */
     let belief = belief(state)
     let mentalState = mapN(function(i) {
@@ -453,8 +458,9 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       let othersMetaParams = sampleMetaParamsEstimations(metaParamsEstimations)
       let allMetaParams = mergeMetaParams(othersMetaParams, selfMetaParams, selfId)
       let lookAhead = allMetaParams.lookAhead[turn]
-      let actionDist = actRec(state, lookAhead, allMetaParams, condOpt, mentalSnapshot)
-      return sample(actionDist)
+      let actionRecDist = actRec(state, lookAhead, allMetaParams, condOpt, mentalSnapshot)
+      let action = sample(actionRecDist)
+      return action
     })
     let actionDistAsString = discreteDistributionToString(actionDist, actions(state))
     explain("Agent " + selfId + " computed the " +
@@ -482,6 +488,10 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
     let availableActions = assertDefined(actions(state),
       "bad game specification: actions at state " +
       stateToString(state) + " undefined")
+    // if (state.investments.length === 0 && state.returns.length === 0) {
+    //   display("av actions")
+    //   display(availableActions)
+    // }
     assertIsArray(availableActions, ANY_TYPE, -1,
       "bad game specification: actions at state " +
       stateToString(state) + " are not an array, found: " +

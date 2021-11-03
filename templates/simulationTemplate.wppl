@@ -68,7 +68,7 @@ let testExperiment = function() {
  * Those experiments should specify a run() function that runs the
  * experiment. It can take parameters, passed in an object retrieved
  * by getParams() function (which retrieves params from argv)*/
-let experiement2 = function() {
+let experiment2 = function() {
   let run = function(params) {
 
   }

@@ -201,7 +201,7 @@ let playersArray = processPlayersLine(lines[0])
 /**
  * Process second line
  * Expected input format: eg "10,5,2,10,1" (er,ei,k,horizon,beliefRep)
- * Tranform into object:
+ * Transform into object:
    {
      endowments : {
       investor : 10,
@@ -276,7 +276,7 @@ The object has the following format:
     {
       alpha: distribution over <number>,
       discountFactor: distribution over <number>,
-      lookAhead: distribution over <number>>
+      lookAhead: distribution over <number>
     },
   mentalEstimationsBelief: an array of belief over each mental estimation
     (where mental estimation is assumed to be a single number [expectation]),

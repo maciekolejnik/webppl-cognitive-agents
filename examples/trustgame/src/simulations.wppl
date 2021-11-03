@@ -674,7 +674,7 @@ let mturkExperiment = function() {
       let belief = [2,1]
     // let belief = [1,4]
     // let trustEst = Delta({v: categorical({vs: [.1,.3,.5,.7,.9]})})
-    let trustEst = Delta({ v: 0.7 })
+    let trustEst = Delta({ v: 0.1 })
       let getLookaheadEst = function(prior, estimated) {
           let posterior = Infer({method: 'enumerate'}, function() {
             let s = sample(prior)
@@ -787,8 +787,52 @@ let mturkExperiment = function() {
   }
 }()
 
+let predictOtherExperiment = function() {
+  let run = function() {
+    let botParams = generateParams([0.3,0.7], 100, 0.8, 3, true)
+    let botInitialStateTmp =
+      generateInitialState(1, 2, 100, 0.8, 2)
+    let botInitialState =
+      extend(botInitialStateTmp
+        ,
+        {
+          belief: arrayReplace(botInitialStateTmp.belief, 0, [1,3]),
+          mentalEstimations:
+            arrayReplace(botInitialStateTmp.mentalEstimations, 0, [Delta({v: 0.7})])
+        }
+      )
+    let csmg = makeCSMG(makeTrustCSMG(gameSpecificParams), options)
+    let bot = makeAgent(botParams, 1, botInitialState, csmg)
+    let act = bot.act
+    // let state = csmg.initialState
+    let state = {investments: [3], returns: [0], turn: 'investor'}
+    let dist = act(state)
+    display(discreteDistributionToString(dist, [0,1,2,3,4]))
+  }
+
+  // let getParams = function() {
+  //   let param1 = argv.param1 /** etc */
+  //   return {
+  //     param1
+  //   }
+  // }
+
+  let scenarios = [
+    { name: "first" },
+    { name: "second" }
+  ]
+
+  return {
+    name: "predictOtherExperiment",
+    desc: "we want to be able to retrieve predictions of one player ",
+    run,
+    scenarios
+  }
+}()
+
 let experiments = [testExperiment, varyTrustExperiment,
-  conmanNoncognitiveExperiment, conmanCognitiveExperiment, mturkExperiment]
+  conmanNoncognitiveExperiment, conmanCognitiveExperiment,
+  mturkExperiment, predictOtherExperiment]
 
 let outcome = processCommandline(makeTrustCSMG, experiments, argv)
 // display(arrayToString(outcome.result[0][0]))
