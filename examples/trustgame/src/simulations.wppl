@@ -651,7 +651,7 @@ let mturkExperiment = function() {
 
   /**
    *
-   * @param role | 0 (investor) or 1 (investee)
+   * @param role of the bot (0 (investor) or 1 (investee))
    * @param goalCoeffs
    * @param lookAhead
    * @param belief
@@ -665,28 +665,22 @@ let mturkExperiment = function() {
     let mean = 50
     // let dev = categorical({vs: [4,8]})
     let dev = 8
-    let alphaEst = getPositiveNormalDiscretised(mean, dev, 1)
+    let alphaEst = role === INVESTEE ?
+      getPositiveNormalDiscretised(mean, dev, 1) :
+      getPositiveNormalDiscretised(mean, dev, 3)
+    // let alphaEst = getPositiveNormalDiscretised(mean, dev, 1)
     // let alphaEst = Delta({v: 100})
     // let lookAhead = categorical({vs: [1,2,3]})
-    let lookAhead = 4
-    // let belief = categorical({ vs: [[1,1],[1,2],[1.25,1.75],[1.75,1.25],[2,1],[1.5,1.5]]})
+    let lookAhead = role === INVESTOR ? 2 : 4
+    let belief = categorical({ vs: [[1,1],[1,2],[1.25,1.75],[1.75,1.25],[2,1],[1.5,1.5]]})
     // let belief = [1.75,1.25]
-      let belief = [2,1]
+    // let belief = [2,1]
     // let belief = [1,4]
-    // let trustEst = Delta({v: categorical({vs: [.1,.3,.5,.7,.9]})})
-    let trustEst = Delta({ v: 0.1 })
-      let getLookaheadEst = function(prior, estimated) {
-          let posterior = Infer({method: 'enumerate'}, function() {
-            let s = sample(prior)
-            factor(-Math.abs(s - estimated))
-            return s
-          })
-          return posterior
-      }
-    // let lookAheadEst = getLookaheadEst(Categorical({ps: [1/14,2/14,5/14,5/14,1/14], vs: [0,1,2,3,4]}), 2)
-    // let lookAheadEst = Categorical({ps: [1/13,2/13,5/13,5/13], vs: [0,1,2,3]})
-    let lookAheadEst = Categorical({ps: [10/10], vs: [3]})
-    let botParams = generateParams(goalCoeffs, 100, 0.8, lookAhead, true)
+    let trustEst = Delta({v: categorical({vs: [.1,.3,.5,.7,.9]})})
+    // let trustEst = Delta({ v: 0.1 })
+    let lookAheadEst = role === INVESTEE ? Delta({v: 4}) :
+      Categorical({ps: [1/14,2/14,5/14,5/14,1/14], vs: [0,1,2,3,4]})
+    let botParams = generateParams(goalCoeffs, 1000, 0.8, lookAhead, true)
     let botInitialState = generateBotInitialState(role, alphaEst, Delta({v: 0.8}), lookAheadEst, belief, trustEst)
     return {
       params: botParams,
@@ -730,7 +724,11 @@ let mturkExperiment = function() {
     let participant = generateParticipant(INVESTEE)
     let agents = [bot, participant]
     let name = "Greedy bot as investor"
-    return {name, agents, names, options, gameSpecificParams}
+    let opts = {
+      beliefRepresentation: 'dirichlet',
+      horizon: 1
+    }
+    return {name, agents, names, options: opts, gameSpecificParams}
   }
 
   let getGreedyBotAsInvesteeScenario = function() {
@@ -834,6 +832,7 @@ let experiments = [testExperiment, varyTrustExperiment,
   conmanNoncognitiveExperiment, conmanCognitiveExperiment,
   mturkExperiment, predictOtherExperiment]
 
+display('processcommandline')
 let outcome = processCommandline(makeTrustCSMG, experiments, argv)
 // display(arrayToString(outcome.result[0][0]))
 

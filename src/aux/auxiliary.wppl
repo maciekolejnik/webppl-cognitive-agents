@@ -116,6 +116,10 @@ let max = function(a,b) {
     return (a>b) ? a : b
 }
 
+let now = function() {
+    return Math.floor(Date.now() / 1000)
+}
+
 /** wrappers around _top for calling javascript functions */
 let parseInt = function(s) {_top.parseInt(s)}
 let parseFloat = function(s) { return _top.parseFloat(s)}

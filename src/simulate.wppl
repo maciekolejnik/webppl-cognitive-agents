@@ -30,6 +30,7 @@
  *  are needed for the run function)
  *  */
 let run = function(experiment, makeGame, argv) {
+  info('run(' + experiment + ", " + makeGame + ", " + argv)
   let getParams = experiment.getParams
   let params = (isDefined(getParams)) ? getParams() : {}
   if (isDefined(experiment.run)) {
@@ -92,10 +93,17 @@ let runAll = function(experiments, makeGame, argv) {
  * @param argv
  */
 let processCommandline = function(makeGame, experiments, argv) {
+  info('processCommandLine(' + makeGame + ', ' + experiments + ', ' + argv + ')')
   assertDefined(experiments, "processCommandLine(): experiments undefined")
   assertIsArray(experiments, OBJECT_TYPE, -1,
     "processCommandLine(): experiments not an array!; found: " +
     toString(experiments))
+  let log = argv.log
+  if (log) {
+    assertHasType(log, NUMBER_TYPE,
+      'processCommandLine(): --log must be a number; found: ' + log)
+    globalStore.loggingLevel = log
+  }
   let help = argv.help
   if (help) {
     printInfo(experiments)

@@ -1,7 +1,4 @@
-/** dependencies: none */
-
-// let LOGGING_LEVEL = 2
-let INFERENCE_MODE = false
+let INFERENCE_MODE = globalStore.inferenceMode !== undefined
 
 /** LOGGING
  *
@@ -70,16 +67,9 @@ let LOGGING = {
 
 
 let getLoggingLevel = function() {
-  // if (isDefined(argv.log)) {
-  //   let level = _.parseInt(argv.log)
-  //   let failMsg = "logging level passed in commandline (--log <level>) "
-  //     + "must be an integer between 1 and 5; found: " + level
-  //   if (!_top.Number.isInteger(level) || level < 1 || level > 5) {
-  //     error(failMsg)
-  //   }
-  //   return level
-  // }
-  return LOGGING.default
+  let level = globalStore.loggingLevel || LOGGING.default
+  let result = Math.max(LOGGING.minLevel, Math.min(LOGGING.maxLevel, level))
+  return result
 }
 
 let logger = getLogger(getLoggingLevel())

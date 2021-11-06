@@ -443,7 +443,10 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       "Input to act() doesn't meet precondition: can't compute " +
       "own action under a condition")
     /** prepare mentalSnapshot for future utility computations) */
+    let start = now()
     let belief = belief(state)
+    explain("Took " + (now() - start) + " seconds to compute belief",
+      thisAgentActs && !INFERENCE_MODE)
     let mentalState = mapN(function(i) {
       return computeMentalState(state, belief, i)
     }, numberOfRewards.mental)
@@ -458,6 +461,10 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       let othersMetaParams = sampleMetaParamsEstimations(metaParamsEstimations)
       let allMetaParams = mergeMetaParams(othersMetaParams, selfMetaParams, selfId)
       let lookAhead = allMetaParams.lookAhead[turn]
+      explain("Compute action for opponent's rationality: " +
+        othersMetaParams.alpha[otherAgentID(turn)] + " and lookAhead: " +
+        othersMetaParams.lookAhead[otherAgentID(turn)],
+        thisAgentActs && !INFERENCE_MODE)
       let actionRecDist = actRec(state, lookAhead, allMetaParams, condOpt, mentalSnapshot)
       let action = sample(actionRecDist)
       return action
