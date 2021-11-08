@@ -515,7 +515,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       factor(alpha * actionLikelihood)
       return action
     })
-    debug("Computed following dist at state " + stateToString(state) +
+    info("Computed following dist at state " + stateToString(state) +
       " with " + timeLeft + " steps left:\n" +
       discreteDistributionToString(actionDist, availableActions) + "\n" + globalStore.indent,
       !INFERENCE_MODE && globalStore.indent == 2 && turn !== selfId)
