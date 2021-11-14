@@ -69,6 +69,12 @@ let assertDefined = function(x, failMsg, succMsgOpt) {
     return x
 }
 
+let assertUndefined = function(x, failMsg, succMsgOpt) {
+    if (failMsg === undefined) error("assertUndefined called without error message!")
+    printSuccessOrRaiseError(x === undefined, failMsg, succMsgOpt)
+    return x
+}
+
 /** asserts x and y are equal, where equality is taken to mean
  *  structural equality */
 let assertEqual = function(x, y, failMsg, succMsg) {

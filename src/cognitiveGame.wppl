@@ -223,7 +223,7 @@ let makeCSMG = function (gameSetup, externalParams) {
     }
 
     let computeMentalState = function(state, belief, mentalAttitudeIndex) {
-      info("mentalState() of agent " + selfAgentID + " at state " +
+      info("computeMentalState() of agent " + selfAgentID + " at state " +
         stateToString(state) + " for mental attitude " + mentalAttitudeIndex)
       let mentalStateComputeFn = mentalStateArr[mentalAttitudeIndex]
       let result = mentalStateComputeFn(selfAgentID, belief, state)

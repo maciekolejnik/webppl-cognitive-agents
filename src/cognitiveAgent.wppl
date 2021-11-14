@@ -123,6 +123,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
   assertDefined(initialState, "makeAgent: initialState missing")
   let initialBeliefValue = assertDefined(initialState.belief,
     "makeAgent: initialBelief missing")
+  validateBelief(initialBeliefValue, selfId, numberOfAgents)
   let initialBelief = {
     representation: beliefRepresentation,
     value: initialBeliefValue

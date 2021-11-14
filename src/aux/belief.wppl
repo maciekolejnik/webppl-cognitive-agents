@@ -32,9 +32,26 @@
 
 
 /** PRIVATE */
+let validateBelief = function(fullBelief, thisAgentID, numberOfAgents) {
+  aux('validateBelief(' + fullBelief + ";" + thisAgentID + ";"
+    + numberOfAgents + ")")
+  map(function(agentID) {
+    let indBelief = fullBelief[agentID]
+    let intro = 'validateBelief() with ' + toString(fullBelief) +
+      ' for agent ' + thisAgentID
+    if (agentID === thisAgentID) {
+      assertUndefined(indBelief,intro + ': belief over oneself should ' +
+        'be undefined, but found: ' + indBelief)
+    } else {
+      assertDefined(indBelief, intro + ': belief over agent '
+        + agentID + ' should be defined, but found undefined')
+    }
+  }, rangeArray(0, numberOfAgents-1))
+}
 
 let individualBeliefToString = function(individualBelief, numberOfGoalCoeffs) {
-  aux("individualBeliefToString()")
+  aux("individualBeliefToString(" + individualBelief + ","
+    + numberOfGoalCoeffs + ")")
   assertDefined(individualBelief,
     "individualBeliefToString(): missing individualBelief")
   assertDefined(numberOfGoalCoeffs,
@@ -73,7 +90,7 @@ let retrieveBeliefOver = function(agentID, fullBelief) {
 /** this expects FULL belief where value is array of distributions */
 let beliefToString = function (fullBelief, ofAgentID, numberOfGoalCoeffsArr) {
   aux("beliefToString(): fullBelief=" + toString(fullBelief) +
-    ", numberOfGoalCoeffsArr=" + numberOfGoalCoeffsArr)
+    ", ofAgentID=" + ofAgentID + ", numberOfGoalCoeffsArr=" + numberOfGoalCoeffsArr)
   let initialAcc = {
     'discrete': "Belief as expectations of each goalcoeff:",
     'dirichlet': "Belief as params to dirichlet dist"
