@@ -212,7 +212,7 @@ let makeAgent = function (selfParams, selfId, initialState, game, cache) {
       // return retrieveBeliefOf(ofAgentId, initialBelief)
     }
     // check if provided cache contains the answer
-    let cached = cache.belief[JSON.stringify(state)]
+    let cached = cache && cache.belief && cache.belief[JSON.stringify(state)]
     if (cached) {
       return cached
     }
