@@ -32,6 +32,7 @@ let objectToString = function(obj) {
 
 let toString = function(x) {
     if (x === undefined) return "undefined"
+    if (x === null) return "null"
     if (_top.Array.isArray(x)) return arrayToString(x)
     if (typeof x === 'object') return objectToString(x)
     return x

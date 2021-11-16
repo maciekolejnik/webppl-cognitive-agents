@@ -726,7 +726,7 @@ let mturkExperiment = function() {
     let name = "Greedy bot as investor"
     let opts = {
       beliefRepresentation: 'dirichlet',
-      horizon: 1
+      horizon: 8
     }
     return {name, agents, names, options: opts, gameSpecificParams}
   }

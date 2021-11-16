@@ -47,14 +47,13 @@
  * @param initialState {Object} Initial state of the game
  * @param game {Object}         A big game object which is assumed to come from calling
  *                              makeCSMG
- * @param cache {Object}        (optional) stores saved function calls, particularly belief
  * @returns {Object}            An object representing this agent, containing its parameters
  *                              (params), functions that describe this agent's decision making
  *                              (act, belief, expectedUtility), functions that compute various
  *                              propoerties of this agent (mentalRewards, mentalState,
  *                              getStateUtility and getActionUtility)
  * */
-let makeAgent = function (selfParams, selfId, initialState, game, cache) {
+let makeAgent = function (selfParams, selfId, initialState, game) {
   info("makeAgent() with id " + selfId)
   /** Extract some functions from the game API for easy access */
   let gameAPI = assertDefined(game.API, "makeAgent(): game.API undefined ")
@@ -212,10 +211,14 @@ let makeAgent = function (selfParams, selfId, initialState, game, cache) {
       // return retrieveBeliefOf(ofAgentId, initialBelief)
     }
     // check if provided cache contains the answer
-    let cached = cache && cache.belief && cache.belief[JSON.stringify(state)]
-    if (cached) {
-      return cached
+    let cache = globalStore.cache && globalStore.cache.belief
+    let stringedState = JSON.stringify(state)
+    if (cache && stringedState in cache) {
+      let value = cache[stringedState]
+      let parsed = JSON.parse(value)
+      return parsed
     }
+
     let prevState = getPreviousState(state)
     let lastAction = getLastAction(state)
     let prevBelief = belief(prevState)
@@ -587,6 +590,8 @@ let makeAgent = function (selfParams, selfId, initialState, game, cache) {
   }
 
   let mentalState = function(state, mentalAttitudeIndex) {
+    aux("mentalState(" + stateToString(state) + ","
+      + mentalAttitudeIndex + ")")
     assertDefined(state, "mentalState(): state undefined")
     assertDefined(mentalAttitudeIndex, "mentalState(): mentalAttitudeIndex undefined")
     let belief = belief(state)
@@ -594,6 +599,8 @@ let makeAgent = function (selfParams, selfId, initialState, game, cache) {
   }
 
   let mentalEstimation = function(state, ofAgentID, mentalAttitudeIndex) {
+    aux("mentalEstimation(" + stateToString(state) + "," + ofAgentID +
+      "," + mentalAttitudeIndex + ")")
     assertDefined(state, "mentalEstimation(): state undefined")
     assertDefined(ofAgentID, "mentalEstimation(): ofAgentID undefined")
     assertDefined(mentalAttitudeIndex, "mentalEstimation(): mentalAttitudeIndex undefined")
