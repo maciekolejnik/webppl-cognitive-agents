@@ -191,7 +191,7 @@ let makeCSMG = function (gameSetup, externalParams) {
      *
      *  @returns [<rewards for mental state 0>, <rewards for mental state 1>, ...]
      */
-    let computeMentalRewards = function (state, ofAgentID, belief, mentalSnapshot) {
+    let computeMentalRewardsU = function (state, ofAgentID, belief, mentalSnapshot) {
       info("computeMentalRewards(): " + selfAgentID + " computing mental " +
         "rewards of " + ofAgentID + " at state " + stateToString(state))
 
@@ -221,6 +221,7 @@ let makeCSMG = function (gameSetup, externalParams) {
       let rewardsByAttitudeArr = mapIndexed(computeRewardsFromAttitude, ofAgentMentalUtility)
       return rewardsByAttitudeArr
     }
+    let computeMentalRewards = dp.cache(computeMentalRewardsU)
 
     let computeMentalState = function(state, belief, mentalAttitudeIndex) {
       info("computeMentalState() of agent " + selfAgentID + " at state " +
@@ -235,7 +236,7 @@ let makeCSMG = function (gameSetup, externalParams) {
      * by *mentalAttitudeIndex*), computed using mental state dynamics
      * relative to a true value at some past state saved in *mentalSnapshot*
      * */
-    let nestedEstimation = function(state, mentalAttitudeIndex, mentalSnapshot) {
+    let nestedEstimationU = function(state, mentalAttitudeIndex, mentalSnapshot) {
       info("nestedEstimation(state=" + stateToString(state) + ", index=" +
         mentalAttitudeIndex + ")")
       assertDefined(state,
@@ -252,20 +253,22 @@ let makeCSMG = function (gameSetup, externalParams) {
       let snapValues = mentalSnapshot.values
       let updateFn = estimationHeuristicsArr[mentalAttitudeIndex]
       /** Local recursive function to save stack space by passing less parameters */
-      let nestedEstimationRec = function(state) {
+      let nestedEstimationRecU = function(state) {
         if (_.isEqual(state, snapState)) {
           return snapValues[mentalAttitudeIndex]
         }
         let prevState = getPreviousState(state)
         // let lastAction = getLastAction(state)
-        let prevValue = nestedEstimationRec(prevState)
+        let prevValue = nestedEstimationRecU(prevState)
         let curValue = updateFn(prevValue, selfAgentID, selfAgentID, state)
         return curValue
       }
+      let nestedEstimationRec = dp.cache(nestedEstimationRecU)
       let result = nestedEstimationRec(state)
       info("nestedEstimation(): returning")
       return result
     }
+    let nestedEstimation = dp.cache(nestedEstimationU)
 
 
     /** computes this agent's (selfAgentID) estimation of *ofAgentID*
@@ -274,8 +277,8 @@ let makeCSMG = function (gameSetup, externalParams) {
      * @param ofAgentID {Int}
      * @param rewardIndex {Int}
      * @returns mentalStateEstimation {Distribution} */
-    let estimateMentalState =
-        dp.cache(function(state, ofAgentID, rewardIndex) {
+    let estimateMentalStateU =
+        function(state, ofAgentID, rewardIndex) {
         info("estimation(): state=" + stateToString(state) +
           ", ofAgentID=" + ofAgentID + ", rewardIndex=" + rewardIndex)
         if (isInitial(state)) {
@@ -287,7 +290,7 @@ let makeCSMG = function (gameSetup, externalParams) {
           return initialEstimations[ofAgentID][rewardIndex]
         }
         let prevState = getPreviousState(state)
-        let prevEstimation = estimateMentalState(prevState, ofAgentID, rewardIndex)
+        let prevEstimation = estimateMentalStateU(prevState, ofAgentID, rewardIndex)
         let updateEstimation = function (updateFn, prevEstimation) {
           return Infer({method: 'enumerate'}, function () {
             assertHasType(prevEstimation, DIST_TYPE,
@@ -304,7 +307,8 @@ let makeCSMG = function (gameSetup, externalParams) {
         info("estimation(): state=" + stateToString(state) +
           "; returning " + result)
         return result
-      })
+      }
+      let estimateMentalState = dp.cache(estimateMentalStateU)
 
     return {
       computeMentalRewards,

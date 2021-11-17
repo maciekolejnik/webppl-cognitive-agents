@@ -257,7 +257,7 @@ let makeTrustCSMG = function(gameSpecificParams) {
      * decreases faster (in response to untrustworthy actions) when
      * it's high.
      */
-    let updateTrustEstimation = function(trust, estimatingAgentID, estimatedAgentID, state) {
+    let updateTrustEstimationU = function(trust, estimatingAgentID, estimatedAgentID, state) {
       let lastState = getPreviousState(state)
       let action = getLastAction(state)
       let maxPossibleTransfer = maxPossibleTransfer(lastState)
@@ -288,6 +288,7 @@ let makeTrustCSMG = function(gameSpecificParams) {
         trustChangeAfterReturn(action, maxPossibleTransfer / 2, trust)
       return updateTrustProportionately(trust, newTrust, scale)
     }
+    let updateTrustEstimation = dp.cache(updateTrustEstimationU)
 
     /** Compute agentID's trust toward the other agent */
     let computeTrust = function(agentID, belief, state) {

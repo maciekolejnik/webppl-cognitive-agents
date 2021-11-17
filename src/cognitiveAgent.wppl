@@ -201,7 +201,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
    *  Computes selfID's belief of ofAgentID in *state*. Proceeds recursively.
    *  To avoid recomputation, this function is cached.
    */
-  let belief = dp.cache(function (state) {
+  let beliefU = function (state) {
     info("belief(): state: " + stateToString(state) + ", of agent " + selfId)
     let opponentsHaveNoMoreThanOneReward = all(function(elem) { return elem <= 1 },
       arrayReplace(goalCoeffsNumberByAgent, selfId, 0))
@@ -221,12 +221,13 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
 
     let prevState = getPreviousState(state)
     let lastAction = getLastAction(state)
-    let prevBelief = belief(prevState)
+    let prevBelief = beliefU(prevState)
     globalStore.indent += 2
     let result = updateBelief(prevBelief, prevState, lastAction)
     globalStore.indent -= 2
     return result
-  })
+  }
+  let belief = dp.cache(beliefU)
 
   /** belief here is over individual agent already */
   let updateBelief = function (belief, state, action) {
@@ -443,7 +444,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
    * @return
     a distribution over actions available to the acting agent at @state
    */
-  let act = dp.cache(function (state, condOpt) {
+  let actU = function (state, condOpt) {
     info("act(state: " + stateToString(state) + ", cond: " + condToString(condOpt) + ")")
     let turn = turn(state)
     let thisAgentActs = turn === selfId
@@ -483,7 +484,8 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
     explain("Agent " + selfId + " computed the " +
       "following action distribution:\n" + actionDistAsString, thisAgentActs)
     return actionDist
-  })
+  }
+  let act = dp.cache(actU)
 
   /**
    * Params:
@@ -494,7 +496,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
    *   @param mentalSnapshot - records mental state of this agent at the point
    *      when action is being computed
    */
-  let actRec = (function (state, timeLeft, allMetaParams, cond, mentalSnapshot) {
+  let actRecU = function (state, timeLeft, allMetaParams, cond, mentalSnapshot) {
     info(spaces(globalStore.indent) + "actRec(): state=" + stateToString(state) +
       ", horizon: " + timeLeft + ")", !INFERENCE_MODE)
     let turn = turn(state)
@@ -530,7 +532,8 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       discreteDistributionToString(actionDist, availableActions) + "\n" + globalStore.indent,
       !INFERENCE_MODE && globalStore.indent == 2 && turn !== selfId)
     return actionDist
-  })
+  }
+  let actRec = dp.cache(actRecU)
 
   /** Computes expected utility of agent with *role* upon *action* taken in *state*
    * with *timeLeft* left. *timeLeft* must be > 0!
@@ -542,7 +545,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
    *   - *timeLeft* - integer
    *   - *otherParams* -
    */
-  let expectedUtility = (
+  let expectedUtilityU = (
     function (state, action, ofAgentID, timeLeft, allMetaParams, cond, mentalSnapshot) {
       info(spaces(globalStore.indent) + "expectedUtility() at state " +
         stateToString(state) + ", for action: " + action + ", computed by " +
@@ -570,7 +573,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
         let nextActionTakerHorizon = min(allMetaParams.lookAhead[nextTurn], nextTimeLeft)
         let nextActionDist = actRec(nextState, nextActionTakerHorizon, allMetaParams, cond, mentalSnapshot)
         let nextAction = sample(nextActionDist)
-        return nextStateUtility + expectedUtility(nextState, nextAction,
+        return nextStateUtility + expectedUtilityU(nextState, nextAction,
           ofAgentID, nextTimeLeft, allMetaParams, cond, mentalSnapshot)
       })
       globalStore.indent -= 2
@@ -582,6 +585,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
         (!INFERENCE_MODE && (ofAgentID === selfId && cond === undefined && globalStore.indent === 0)))
       return eu
     })
+  let expectedUtility = dp.cache(expectedUtilityU)
 
   let mentalRewards = function(state) {
     let belief = belief(state)
