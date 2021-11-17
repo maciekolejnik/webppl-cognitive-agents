@@ -1,5 +1,9 @@
 let INFERENCE_MODE = globalStore.inferenceMode !== undefined
 
+let spaces = function(n) {
+  return ' '.repeat(n)
+}
+
 /** LOGGING
  *
  * This implements a very basic logging mechanism, with different
@@ -31,8 +35,13 @@ let INFERENCE_MODE = globalStore.inferenceMode !== undefined
 let getLogger = function(level) {
   let displayIfLevelHighAndFlag = function(message, flagOpt, treshold) {
     let flag = flagOpt === undefined || flagOpt
+    let indent = globalStore.indent || 0
+    if (indent < 0) {
+      error("displayIfLevelHighAndFlag(): indent expected >= 0, " +
+      "but found: " + indent)
+    }
     if (level >= treshold && flag) {
-      display(message)
+      display(spaces(indent) + message)
     }
   }
 

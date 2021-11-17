@@ -222,6 +222,7 @@ let makeCSMG = function (gameSetup, externalParams) {
       return rewardsByAttitudeArr
     }
     let computeMentalRewards = dp.cache(computeMentalRewardsU)
+    // let computeMentalRewards = computeMentalRewardsU
 
     let computeMentalState = function(state, belief, mentalAttitudeIndex) {
       info("computeMentalState() of agent " + selfAgentID + " at state " +
@@ -263,12 +264,14 @@ let makeCSMG = function (gameSetup, externalParams) {
         let curValue = updateFn(prevValue, selfAgentID, selfAgentID, state)
         return curValue
       }
-      let nestedEstimationRec = dp.cache(nestedEstimationRecU)
+      // let nestedEstimationRec = dp.cache(nestedEstimationRecU)
+      let nestedEstimationRec = nestedEstimationRecU
       let result = nestedEstimationRec(state)
       info("nestedEstimation(): returning")
       return result
     }
-    let nestedEstimation = dp.cache(nestedEstimationU)
+    // let nestedEstimation = dp.cache(nestedEstimationU)
+    let nestedEstimation = nestedEstimationU
 
 
     /** computes this agent's (selfAgentID) estimation of *ofAgentID*
@@ -279,7 +282,7 @@ let makeCSMG = function (gameSetup, externalParams) {
      * @returns mentalStateEstimation {Distribution} */
     let estimateMentalStateU =
         function(state, ofAgentID, rewardIndex) {
-        info("estimation(): state=" + stateToString(state) +
+        info("estimateMentalState(): state=" + stateToString(state) +
           ", ofAgentID=" + ofAgentID + ", rewardIndex=" + rewardIndex)
         if (isInitial(state)) {
           assert(initialEstimations[ofAgentID] !== undefined &&
@@ -309,6 +312,7 @@ let makeCSMG = function (gameSetup, externalParams) {
         return result
       }
       let estimateMentalState = dp.cache(estimateMentalStateU)
+      // let estimateMentalState = estimateMentalStateU
 
     return {
       computeMentalRewards,

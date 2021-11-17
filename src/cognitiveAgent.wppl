@@ -225,9 +225,11 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
     globalStore.indent += 2
     let result = updateBelief(prevBelief, prevState, lastAction)
     globalStore.indent -= 2
+    info("belief() returning")
     return result
   }
   let belief = dp.cache(beliefU)
+  // let belief = beliefU
 
   /** belief here is over individual agent already */
   let updateBelief = function (belief, state, action) {
@@ -320,9 +322,9 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
     if (apply3(beliefHeuristic.applies, state, action, selfId)) {
       return apply3(beliefHeuristic.updateBelief, belief, state, action)
     }
-    return appropriateFn(belief.value, actingAgentID)
-    /** again, for now assume no update for simplicity */
-    // return belief
+    let updatedBelief = appropriateFn(belief.value, actingAgentID)
+    info("updateBelief() returning")
+    return updatedBelief
   }
 
   /** Utility function
@@ -335,7 +337,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
    *     to this agent's belief and mental rewards are taken as real values this agent knows
    * 2b. When condition *cond* is passed, utility is computed wrt
    */
-  let actionUtility = (function (state, action, ofAgentID, cond, mentalSnapshot) {
+  let actionUtilityU = function (state, action, ofAgentID, cond, mentalSnapshot) {
     info("actionUtility(state: " + stateToString(state) + ", action: " + action +
       ", role: " + ofAgentID + ", cond: " + condToString(cond) + ")")
     assertDefined(mentalSnapshot, "actionUtility: mentalSnapshot undefined")
@@ -365,7 +367,9 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
     let expectations =
       goalCoeffsExpectation(individualBelief, goalCoeffsNumberByAgent[ofAgentID]).slice(0, numberOfRewards.physical)
     return physicalUtilityFn(expectations, physicalRewards)
-  })
+  }
+  // let actionUtility = dp.cache(actionUtilityU)
+  let actionUtility = actionUtilityU
 
   /** This agent (selfID) computes state utility of agent ofAgentID,
    * from the perspective of state saved in mentalSnapshot, possibly
@@ -377,7 +381,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
    *  @return {Number}            Utility
    *
    *  */
-  let stateUtility = (function (state, ofAgentID, cond, mentalSnapshot) {
+  let stateUtilityU = function (state, ofAgentID, cond, mentalSnapshot) {
     info("stateUtility(): agent " + selfId + " computing state " +
       "utility of " + ofAgentID + " at state " + stateToString(state) +
       " from perspective of state " + stateToString(mentalSnapshot.state) +
@@ -388,6 +392,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
         ", rewards: " + toString(rewards))
       let physicalUtility = physicalUtilityFn(goalCoeffs.physical, rewards.physical)
       let mentalUtility = mentalUtilityFn(goalCoeffs.mental, rewards.mental)
+      info("stateUtil: returning " + (physicalUtility + mentalUtility))
       return physicalUtility + mentalUtility
     }
 
@@ -415,6 +420,7 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
     if (cond !== undefined) {
       info("stateUtility(): case 2b")
       let result = conditionalUtility(rewards, cond, utilityFns)
+      info("stateUtility: returning " + result)
       return result
     }
 
@@ -429,7 +435,9 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
     let utility = stateUtil(goalCoeffs, rewards)
     info("stateUtility: returning " + utility)
     return utility
-  })
+  }
+  // let stateUtility = dp.cache(stateUtilityU)
+  let stateUtility = stateUtilityU
 
   /** Compute action (distribution) at given state from the
    * perspective of this agent. There are three cases:
@@ -465,10 +473,11 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       values: mentalState,
       state
     }
-    globalStore.indent = 0
+    // globalStore.indent = 0
     explain("Agent will explore the game tree up to depth " +
       selfMetaParams.lookAhead, thisAgentActs && !INFERENCE_MODE)
     let actionDist = Infer({method: 'enumerate'}, function () {
+      info("act(): enumerate")
       let othersMetaParams = sampleMetaParamsEstimations(metaParamsEstimations)
       let allMetaParams = mergeMetaParams(othersMetaParams, selfMetaParams, selfId)
       let lookAhead = allMetaParams.lookAhead[turn]
@@ -476,16 +485,20 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
         othersMetaParams.alpha[otherAgentID(turn)] + " and lookAhead: " +
         othersMetaParams.lookAhead[otherAgentID(turn)],
         thisAgentActs && !INFERENCE_MODE)
+      globalStore.indent += 2
       let actionRecDist = actRec(state, lookAhead, allMetaParams, condOpt, mentalSnapshot)
+      globalStore.indent -= 2
       let action = sample(actionRecDist)
       return action
     })
     let actionDistAsString = discreteDistributionToString(actionDist, actions(state))
     explain("Agent " + selfId + " computed the " +
       "following action distribution:\n" + actionDistAsString, thisAgentActs)
+    info("act(): returning")
     return actionDist
   }
   let act = dp.cache(actU)
+  // let act = actU
 
   /**
    * Params:
@@ -497,8 +510,10 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
    *      when action is being computed
    */
   let actRecU = function (state, timeLeft, allMetaParams, cond, mentalSnapshot) {
-    info(spaces(globalStore.indent) + "actRec(): state=" + stateToString(state) +
-      ", horizon: " + timeLeft + ")", !INFERENCE_MODE)
+    aux("actRec(): state=" + stateToString(state) +
+      ", horizon: " + timeLeft + ",metaParams: " + toString(allMetaParams) +
+      ", cond" + toString(cond) + ", mentalSnapshot: " + toString(mentalSnapshot) +
+      ")", !INFERENCE_MODE)
     let turn = turn(state)
     let alpha = assertDefined(allMetaParams.alpha[turn],
       "bad game specification: agent's " + selfId + " estimation " +
@@ -515,15 +530,19 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       "bad game specification: actions at state " +
       stateToString(state) + " are not an array, found: " +
       toString(availableActions))
+    info("actRec(): compute action now")
     let actionDist = Infer({method: 'enumerate'}, function () {
       let action = uniformDraw(availableActions)
+      info("actRec(): consider action=" + action)
       if (availableActions.length === 1) return action
       // use heuristic if (i) one is defined, (ii) it's opponent's turn and
       // (iii) we're not updating belief
       let useHeuristic = !thisAgentActs && usesHeuristic && apply3(actionHeuristic.applies, state, selfId, turn) && !cond
+      info("actRec(): useHeuristic: " + useHeuristic)
       let actionLikelihood = useHeuristic ?
         computeOpponentAction(selfId, turn, action, state, mentalState, mentalEstimation) :
         expectedUtility(state, action, turn, timeLeft, allMetaParams, cond, mentalSnapshot)
+      info("actRec(): actionLikelihood=" + actionLikelihood)
       factor(alpha * actionLikelihood)
       return action
     })
@@ -531,9 +550,11 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       " with " + timeLeft + " steps left:\n" +
       discreteDistributionToString(actionDist, availableActions) + "\n" + globalStore.indent,
       !INFERENCE_MODE && globalStore.indent == 2 && turn !== selfId)
+    info("actRec: returning")
     return actionDist
   }
-  let actRec = dp.cache(actRecU)
+  // let actRec = dp.cache(actRecU)
+  let actRec = actRecU
 
   /** Computes expected utility of agent with *role* upon *action* taken in *state*
    * with *timeLeft* left. *timeLeft* must be > 0!
@@ -545,20 +566,21 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
    *   - *timeLeft* - integer
    *   - *otherParams* -
    */
-  let expectedUtilityU = (
-    function (state, action, ofAgentID, timeLeft, allMetaParams, cond, mentalSnapshot) {
-      info(spaces(globalStore.indent) + "expectedUtility() at state " +
+  let expectedUtilityU = function (state, action, ofAgentID, timeLeft, allMetaParams, cond, mentalSnapshot) {
+      aux("expectedUtility() at state " +
         stateToString(state) + ", for action: " + action + ", computed by " +
         selfId + " for " + ofAgentID + ", with time horizon " + timeLeft +
         ", condition " + (cond === undefined ? "undefined" : cond.value), !INFERENCE_MODE)
       if (timeLeft === 0) return 0
       let u = actionUtility(state, action, ofAgentID, cond, mentalSnapshot)
+      info("expectedUtility(): computed action utility=" + u)
       let nextTimeLeft = timeLeft - 1
       let discountFactor = assertDefined(allMetaParams.discountFactor[ofAgentID],
         "bad game specification: agent's " + selfId + " estimation " +
         "of agent's " + turn + " discountFactor undefined")
       globalStore.indent += 2
       let futureUtilityDist = Infer({method: 'enumerate'}, function () {
+        info("expectedUtility(): enumerate")
         let nextStateDist = transitionFn(state, action)
         assertHasType(nextStateDist, DIST_TYPE,
           "bad game specification: transitionFn must return a distribution, but " +
@@ -566,11 +588,13 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
           stateToString(state) + " with action " + action)
         let nextState = sample(nextStateDist)
         let nextStateUtility = stateUtility(nextState, ofAgentID, cond, mentalSnapshot)
+        info("expectedUtility(): nextStateUtility=" + nextStateUtility)
         if (nextTimeLeft == 0) {
           return nextStateUtility
         }
         let nextTurn = turn(nextState)
         let nextActionTakerHorizon = min(allMetaParams.lookAhead[nextTurn], nextTimeLeft)
+        info("expectedUtility(): call actRec() with nextTurn=" + nextTurn)
         let nextActionDist = actRec(nextState, nextActionTakerHorizon, allMetaParams, cond, mentalSnapshot)
         let nextAction = sample(nextActionDist)
         return nextStateUtility + expectedUtilityU(nextState, nextAction,
@@ -583,9 +607,11 @@ let makeAgent = function (selfParams, selfId, initialState, game) {
       debug("EU of " + ofAgentID + " at state " + stateToString(state) +
         " for action " + action + ", with " + timeLeft + " steps left: " + eu,
         (!INFERENCE_MODE && (ofAgentID === selfId && cond === undefined && globalStore.indent === 0)))
+      info("expectedUtility(): returning")
       return eu
-    })
-  let expectedUtility = dp.cache(expectedUtilityU)
+  }
+  // let expectedUtility = dp.cache(expectedUtilityU)
+  let expectedUtility = expectedUtilityU
 
   let mentalRewards = function(state) {
     let belief = belief(state)

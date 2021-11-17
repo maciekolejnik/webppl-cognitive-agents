@@ -736,7 +736,11 @@ let mturkExperiment = function() {
     let participant = generateParticipant(INVESTOR)
     let agents = [participant, bot]
     let name = "Greedy bot as investee"
-    return {name, agents, names: arrayReverse(names), options, gameSpecificParams}
+    let opts = {
+      beliefRepresentation: 'dirichlet',
+      horizon: 4
+    }
+    return {name, agents, names: arrayReverse(names), options: opts, gameSpecificParams}
   }
 
   let getNeutralBotAsInvestorScenario = function() {

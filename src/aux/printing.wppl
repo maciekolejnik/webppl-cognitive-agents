@@ -71,7 +71,3 @@ let stringInABox = function(s) {
     let middle = "|  " + s + "  |"
     return line + "\n" + middle + "\n" + line
 }
-
-let spaces = function(n) {
-    return arrayConcat(repeat(n, function() { return ' '}))
-}

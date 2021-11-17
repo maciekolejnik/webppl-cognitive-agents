@@ -288,7 +288,8 @@ let makeTrustCSMG = function(gameSpecificParams) {
         trustChangeAfterReturn(action, maxPossibleTransfer / 2, trust)
       return updateTrustProportionately(trust, newTrust, scale)
     }
-    let updateTrustEstimation = dp.cache(updateTrustEstimationU)
+    // let updateTrustEstimation = dp.cache(updateTrustEstimationU)
+    let updateTrustEstimation = updateTrustEstimationU
 
     /** Compute agentID's trust toward the other agent */
     let computeTrust = function(agentID, belief, state) {
