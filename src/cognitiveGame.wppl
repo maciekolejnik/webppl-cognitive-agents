@@ -83,7 +83,9 @@ let makeCSMG = function (gameSetup, externalParams) {
     "makeCSMG(): gameSetup.params undefined")
 
   /** Extract game-specific API calls for easy access */
-  let API = getGameAPI(gameSetup.API)
+  let gameSpecificAPI = assertDefined(gameSetup.API,
+    "makeCSMG(): gameSetup.API undefined")
+  let API = getGameAPI(gameSpecificAPI)
 
   let getPreviousState = assertDefined(API.getPreviousState,
     "makeCSMG(): API.getPreviousState undefined")

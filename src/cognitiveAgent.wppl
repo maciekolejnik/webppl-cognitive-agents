@@ -44,7 +44,7 @@
  *
  * @param selfParams {Object}   Parameters of this agent (see above)
  * @param selfId {Integer}      ID of this agent
- * @param initialState {Object} Initial state of the game
+ * @param initialState {Object} Initial state of the agent
  * @param game {Object}         A big game object which is assumed to come from calling
  *                              makeCSMG
  * @returns {Object}            An object representing this agent, containing its parameters

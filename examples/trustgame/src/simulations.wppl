@@ -27,7 +27,7 @@ let callbacks = {
  * estimations are fixed to (100, 0.8, 2/3)
  */
 let getAgents = function(goalCoeffs, beliefs, trustExps) {
-  let aliceParams = generateParams(goalCoeffs[0], 100, 0.8, 2, false)
+  let aliceParams = generateParams(goalCoeffs[0], 100, 0.8, 2, true)
   let aliceInitialStateTmp =
     generateInitialState(0, 2, 100, 0.8, 3)
   let aliceInitialState =
@@ -39,7 +39,7 @@ let getAgents = function(goalCoeffs, beliefs, trustExps) {
           arrayReplace(aliceInitialStateTmp.mentalEstimations, 1, [Delta({v: trustExps[0]})])
       }
     )
-  let bobParams = generateParams(goalCoeffs[1], 100, 0.8, 3, false)
+  let bobParams = generateParams(goalCoeffs[1], 100, 0.8, 3, true)
   let bobInitialStateTmp =
     generateInitialState(1, 2, 100, 0.8, 2)
   let bobInitialState =
@@ -83,9 +83,9 @@ let testExperiment = function() {
   /**
    * This is a basic scenario with standard parameters
    */
-  let getScenarioBasic = function() {
+  let getBasicScenario = function() {
     let name = "Basic (high trust, high trustworthiness)"
-    let bobParams = generateParams([0.3,0.7], 100, 0.8, 3, true)
+    let bobParams = generateParams([0.3,0.7], 100, 0.8, 2, true)
     let bobInitialStateTmp =
       generateInitialState(1, 2, 100, 0.8, 2)
     let bobInitialState =
@@ -99,7 +99,7 @@ let testExperiment = function() {
         )
     let aliceParams = generateParams([0.3,0.7], 100, 0.8, 2, true)
     let aliceInitialStateTmp =
-      generateInitialState(0, 2, 100, 0.8, 3)
+      generateInitialState(0, 2, 100, 0.8, 2)
     let aliceInitialState =
       extend(aliceInitialStateTmp
         ,
@@ -117,8 +117,11 @@ let testExperiment = function() {
       params: bobParams,
       initialState: bobInitialState
     }
+    let opts = extend(options, {
+      printActionDistributions: true
+    })
     let agents = [alice, bob]
-    return {name, agents, options, gameSpecificParams}
+    return {name, agents, options: opts, gameSpecificParams}
   }
 
   let getZeroLookaheadScenario = function() {
@@ -159,7 +162,7 @@ let testExperiment = function() {
     return {name, agents, options, gameSpecificParams}
   }
 
-  let getScenarioWeird = function() {
+  let getAPreviouslyProblematicScenario = function() {
     let name = "this scenario was causing trust dynamics to fail before"
     let bobParams = generateParams([0.1767,0.8233], 100, 0.8, 3, false)
     let bobInitialStateTmp =
@@ -236,7 +239,7 @@ let testExperiment = function() {
   }
 
   let getScenarios = function() {
-    return [getScenarioBasic(), getZeroLookaheadScenario(), getScenarioWeird(), getAnotherScenario()]
+    return [getBasicScenario(), getZeroLookaheadScenario(), getAPreviouslyProblematicScenario(), getAnotherScenario()]
   }
 
   return {
@@ -248,20 +251,62 @@ let testExperiment = function() {
   }
 }()
 
+/** This experiment is used to verify H2 from the thesis */
 let varyTrustExperiment = function() {
 
   /** Auxiliary */
   let computeAverageTransfers = function(scenarioTrajectories) {
-    /** we know scenarioTrajectories should only have one element since
-     * we run each scenario once */
+    // let computeAveragesForATrajectory = function(traj) {
+    //   map(function(role) {
+    //     let relevantActions = filter(function(x) {
+    //       return _.isEqual(x[0].turn, role)
+    //       }, traj)
+    //
+    //   }, ['investor', 'investee'])
+    // }
+    let withoutRewards = map(function(trajs) {
+      return trajs.slice(0,-1)
+    }, scenarioTrajectories)
+    // display("scenariotrajs:")
+    // display(withoutRewards)
+    // display("concatenated:")
+    // display(arrayConcat(withoutRewards))
+    /** trajectories is an array of arrays */
     let avgInvest = listMean(map(function(x) { return x[1]},
-      filter(function(x) {return _.isEqual(x[0].turn, 'investee')},
-        scenarioTrajectories[0])))
-    let avgRet = listMean(map(function(x) { return x[1]},
       filter(function(x) {return _.isEqual(x[0].turn, 'investor')},
-        scenarioTrajectories[0].slice(0,-1))))
-    return [avgInvest, avgRet]
+        arrayConcat(withoutRewards))))
+    let avgRet = listMean(map(function(x) { return x[1]},
+      filter(function(x) {return _.isEqual(x[0].turn, 'investee')},
+        arrayConcat(withoutRewards))))
+    let avgInvestAsProp = listMean(map(function(x) {
+      let res = x[1] / 4
+      // display(res)
+      return res
+      },
+      filter(function(x) {return _.isEqual(x[0].turn, 'investor')},
+        arrayConcat(withoutRewards))))
+    let avgRetAsProp = listMean(map(function(x) {
+        let received = 2 * x[0].investments[0]
+        return x[1] / received
+      },
+      filter(function(x) {
+        return _.isEqual(x[0].turn, 'investee') && x[0].investments[0] > 0
+        },
+        arrayConcat(withoutRewards))))
+    return [[avgInvest, avgRet], [avgInvestAsProp, avgRetAsProp]]
   }
+
+  // let computeAverageTransfers = function(scenarioTrajectories) {
+  //   /** we know scenarioTrajectories should only have one element since
+  //    * we run each scenario once */
+  //   let avgInvest = listMean(map(function(x) { return x[1]},
+  //     filter(function(x) {return _.isEqual(x[0].turn, 'investee')},
+  //       scenarioTrajectories[0])))
+  //   let avgRet = listMean(map(function(x) { return x[1]},
+  //     filter(function(x) {return _.isEqual(x[0].turn, 'investor')},
+  //       scenarioTrajectories[0].slice(0,-1))))
+  //   return [avgInvest, avgRet]
+  // }
 
   let configurations = [
     ["Very low trust", [4,1]],
@@ -279,46 +324,104 @@ let varyTrustExperiment = function() {
     }, configurations)
   }
 
+  let printConfigurations = function(agentsConfigs) {
+    // want this: 1 & [.5,.5] & 0.3 & [.3,.7] & 0.6  \\
+    let round = function(x) {
+      return Math.round((x + Number.EPSILON) * 100) / 100
+      // return Math.round(x * 100) / 100
+    }
+    let goalCoeffVector = function(p) {
+      let roundedP = round(p)
+      return "[" + roundedP + ", " + (1-roundedP) + "]"
+    }
+    let listOfStrings = mapIndexed(function(i, agentsConfig) {
+      let aliceVec = goalCoeffVector(agentsConfig.a)
+      let bobVec = goalCoeffVector(agentsConfig.b)
+      let trustExps = agentsConfig.trustExps
+      return i+1 + " & " + aliceVec + " & " + round(trustExps[0]) +
+        " & " + bobVec + " & " + round(trustExps[1]) + " \\\\"
+    }, agentsConfigs)
+    display(reduceL(function(acc, string) {
+      return acc + string + "\n"
+    }, "", listOfStrings))
+  }
+
   let run = function(params) {
     let reps = params.reps || 20
     assertHasType(reps, INT_TYPE, "varyTrustExperiment: run(): " +
       "reps has wrong type, expected INT, found: " + reps)
     assert(reps > 0, "varyTrustExperiment: run(): reps should " +
       "be a positive integer; found: " + reps)
-    let getSetTrustScenarios = function(name, initialBelief) {
-      let arrayOfAgentsConfigurations = repeat(reps, function() {
-        let a = uniform(0,1)
-        let b = uniform(0,1)
-        let beliefs = [initialBelief,initialBelief]
-        let trustExps = [uniform(0,1), uniform(0,1)]
-        return getAgents([[a, 1-a], [b,1-b]], beliefs, trustExps)
-      })
-      return map(function(agents) {
-        return {name, agents, options, gameSpecificParams}
-      }, arrayOfAgentsConfigurations)
+    /** start by generating *reps* random settings of agent parameters
+     * that will be used for each initial trust value */
+    let arrayOfAgentsConfigurations = repeat(reps, function() {
+      let a = uniform(0,1)
+      let b = uniform(0,1)
+      // let beliefs = [initialBelief,initialBelief]
+      let trustExps = [uniform(0,1), uniform(0,1)]
+      return {a, b, trustExps}
+    })
+    if (params.printLatex) {
+      display("Here is a list of agent config suitable to be used " +
+        "in a latex table:")
+      printConfigurations(arrayOfAgentsConfigurations)
     }
 
+    let getSetTrustScenarios = function(name, initialBelief) {
+      let getOneSet = function() {
+        return map(function(agentsConfig) {
+          let a = agentsConfig.a
+          let b = agentsConfig.b
+          let trustExps = agentsConfig.trustExps
+          let beliefs = [initialBelief, initialBelief]
+          let agents = getAgents([[a, 1-a], [b,1-b]], beliefs, trustExps)
+          return {name, agents, options, gameSpecificParams}
+        }, arrayOfAgentsConfigurations)
+      }
+      return getOneSet()
+      // return arrayConcat(repeat(5, getOneSet))
+    }
+
+    // let getSetTrustScenarios = function(name, initialBelief) {
+    //   let arrayOfAgentsConfigurations = repeat(reps, function() {
+    //     let a = uniform(0,1)
+    //     let b = uniform(0,1)
+    //     let beliefs = [initialBelief,initialBelief]
+    //     let trustExps = [uniform(0,1), uniform(0,1)]
+    //     return getAgents([[a, 1-a], [b,1-b]], beliefs, trustExps)
+    //   })
+    //   return map(function(agents) {
+    //     return {name, agents, options, gameSpecificParams}
+    //   }, arrayOfAgentsConfigurations)
+    // }
+
     let averageTransfers = reduceL(function(acc, config) {
+      // let scenarios = getSetTrustScenarios(config[0], config[1])
       let scenarios = getSetTrustScenarios(config[0], config[1])
       display("Simulating configuration: " + config[0] + "...")
       let trajectories = simulateScenarios(
-        scenarios, makeTrustCSMG, ['alice','bob'], callbacks)
-      critical(scenariosTrajectoriesToScenariosString(trajectories))
-      let averages = map(computeAverageTransfers, trajectories)
-      let avgInvest = listMean(map(fst, averages))
-      let avgReturn = listMean(map(snd, averages))
-      let summary = [config[0], [avgInvest, avgReturn], trajectories]
+        scenarios, makeTrustCSMG, ['alice','bob'], callbacks, 6)
+      display(scenariosTrajectoriesToScenariosString(trajectories))
+      let allAverages = map(computeAverageTransfers, trajectories)
+      let absoluteAverages = map(fst, allAverages)
+      let propAverages = map(snd, allAverages)
+      let avgInvest = listMean(map(fst, absoluteAverages))
+      let avgReturn = listMean(map(snd, absoluteAverages))
+      let avgInvestProp = listMean(map(fst, propAverages))
+      let avgReturnProp = listMean(map(snd, propAverages))
+      let summary = [config[0], [avgInvest, avgReturn], [avgInvestProp, avgReturnProp], trajectories]
       // display("Configuration " + config[0] + " simulated.")
       return acc.concat([summary])
     }, [], configurations)
 
     reduceL(function(acc, avgTransfers) {
       display(avgTransfers[0] + ": " + avgTransfers[1][0] + " on average " +
-        "invested, " + avgTransfers[1][1] + " on average returned")
+        "invested, " + avgTransfers[1][1] + " on average returned; as props: " +
+        avgTransfers[2][0] + " and " + avgTransfers[2][1])
     }, [], averageTransfers)
 
     return arrayConcat(map(function(avgTransfer) {
-      return avgTransfer[2]
+      return avgTransfer[3]
     }, averageTransfers))
   }
 
@@ -329,7 +432,8 @@ let varyTrustExperiment = function() {
       assert(reps > 0, "varyTrustExperiment: getParams(): reps " +
         "must be positive")
       return {
-        reps
+        reps,
+        printLatex: argv.printLatex
       }
     }
     return {}
@@ -338,7 +442,7 @@ let varyTrustExperiment = function() {
   return {
     name: "varyTrustExperiment",
     desc: "This experiment investigates how initial trust affects" +
-      " amounts sent - this is H2 from QEST paper." +
+      " amounts sent - this is H2 from the thesis." +
       "\nThe scenarios are categorized by initial level of trust between" +
       " agents (both agents start with the same belief)" +
       "\nNote that this " +
@@ -836,7 +940,6 @@ let experiments = [testExperiment, varyTrustExperiment,
   conmanNoncognitiveExperiment, conmanCognitiveExperiment,
   mturkExperiment, predictOtherExperiment]
 
-display('processcommandline')
 let outcome = processCommandline(makeTrustCSMG, experiments, argv)
 // display(arrayToString(outcome.result[0][0]))
 

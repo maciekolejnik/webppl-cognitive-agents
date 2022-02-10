@@ -697,27 +697,6 @@ let trustChangeAfterReturn = function(returned, investment, previousEstimate) {
     "trustChangeAfterReturn(): case high return, crossPoint=" + crossPoint)
   // return expLogCurveCrossingIdentity(crossPoint, previousEstimate)
   return expMinusExpCurveCrossingIdentity(crossPoint, previousEstimate)
-
-  // if (returned > investment + 1) {
-  //   let K = (investment + 1) / investment
-  //   // let a = 2 * K / (1-K)
-  //   // let b = K / (K-2)
-  //   // let crossPoint = a * returnProportion + b
-  //   let crossPoint = 1 + K - returnProportion
-  //   assertBetween(crossPoint, 0, 1,
-  //     "trustChangeAfterReturn(): case high return, crossPoint=" + crossPoint)
-  //   // return expLogCurveCrossingIdentity(crossPoint, previousEstimate)
-  //   return expMinusExpCurveCrossingIdentity(crossPoint, previousEstimate)
-  // }
-  // if (returned <= investment) {
-  //   let crossPoint = Math.pow(returnProportion / 2, 2)
-  //   assertBetween(crossPoint, 0, 1,
-  //     "trustChangeAfterReturn(): case lowish return, crossPoint=" + crossPoint)
-  //   // return expLogCurveCrossingIdentity(crossPoint, previousEstimate)
-  //   return expMinusExpCurveCrossingIdentity(crossPoint, previousEstimate)
-  // }
-  // /** case (i) */
-  // return Math.exp(previousEstimate - 1)
 }
 
 /** This basically expresses a curve on [0,1] that starts (at x=0)
@@ -789,8 +768,8 @@ let expCurveForBCrossOne = function(b, x) {
 let expCurveForBCrossZero = function(b,x) {
   assert(b < 0,
     "expCurveForBCrossZero(): expected b < 0; found b=" + b)
-  let a = 1 /b
-  let c = - a
+  let a = 1/b
+  let c = -a
   return a * Math.exp(b * x) + c
 }
 

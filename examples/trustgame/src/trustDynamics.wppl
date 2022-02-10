@@ -49,6 +49,8 @@ let trustChangeAfterInvestment = function(investment, investorEndowment, previou
 
 
 let trustChangeActionVsExpectation = function(action, oldTrust) {
+
+  return expMinusExpCurveCrossingIdentity(action, oldTrust)
   let PEAK = 0.9
   let MAX_INCREASE = 0.25
   let MAX_DECREASE = 0.4
@@ -66,6 +68,18 @@ let trustChangeActionVsExpectation = function(action, oldTrust) {
   let newTrustUnbounded = oldTrust + gaussian(oldTrust)
   let newTrust = Math.min(1, Math.max(0, newTrustUnbounded))
   return newTrust
+}
+
+let expMinusExpCurveCrossingIdentity = function(crossPoint,x) {
+  let b = (x <= crossPoint) ?
+    Math.exp(Math.exp(1-crossPoint) * (1-crossPoint) * (1-crossPoint)) :
+    -Math.exp(crossPoint * Math.exp(crossPoint))-1
+  let a = 1 / (b * Math.exp(b * crossPoint))
+  let c = crossPoint - a * Math.exp(b * crossPoint)
+  display('a: ' + a)
+  display('b: ' + b)
+  display('c: ' + c)
+  return a * Math.exp(b * x) + c
 }
 
 let trustChangeActionAsResponseToNiceness = function(r1, r2, investorEndowment, trust) {
@@ -225,3 +239,7 @@ let conmanTrustChangeAfterReturn = function(returnProportion, previousEstimate) 
       Math.exp(scale * previousEstimate-scale) :
       Math.log(scale*previousEstimate+1))
 }
+
+display(expMinusExpCurveCrossingIdentity(0.8, 0.8))
+display(expMinusExpCurveCrossingIdentity(0.8, 1))
+undefined

@@ -12,6 +12,8 @@
  * - *options* - specifies simulation parameters such as
  *    - *horizon*
  *    - *beliefRepresentation*
+ *    - *printActionDistributions* (optional) if true, computed action
+ *     distributions are printed
  * */
 
 /** Run an experiment
@@ -198,15 +200,16 @@ let simulateScenarios = function (scenarios, getGameSetup, namesOpt, callbacksOp
 let simulateScenario = function (scenario, gameSetup, namesDefault, callbacksOpt) {
   /** here we're validating user input */
   validateScenario(scenario)
+  let options = scenario.options
   explain(stringInABox("Scenario: " + scenario.name))
   let agentsSetup = scenario.agents
   let names = scenario.names || namesDefault
   printAgentsSetup(agentsSetup, names)
-  let game = makeCSMG(gameSetup, scenario.options)
+  let game = makeCSMG(gameSetup, options)
   let agents = mapIndexed(function (i, agentSetup) {
     return makeAgent(agentSetup.params, i, agentSetup.initialState, game)
   }, agentsSetup)
-  let trajectory = simulate(game, agents, scenario.options.horizon, names, callbacksOpt, scenario.startingState)
+  let trajectory = simulate(game, agents, options.horizon, names, options, callbacksOpt, scenario.startingState)
   explain("Sequence of actions computed:")
   explain(map(snd, trajectory.slice(0,-1)))
   return trajectory
@@ -329,7 +332,7 @@ let validateScenario = function(scenario) {
  * @param stateOpt (optional)
  * @returns an array of (state, action) pairs
  */
-let simulate = function (game, agents, horizon, names, callbacksOpt, stateOpt) {
+let simulate = function (game, agents, horizon, names, options, callbacksOpt, stateOpt) {
   assertDefined(game.initialState,
     "simulate(): game.initialState undefined")
   let startingState = stateOpt || game.initialState
@@ -341,7 +344,7 @@ let simulate = function (game, agents, horizon, names, callbacksOpt, stateOpt) {
     let setup = callbacksOpt.setup
     setup(game, agents, startingState, names)
   }
-  let traj = trajectory(game, startingState, agents, horizon, names, callbacksOpt)
+  let traj = trajectory(game, startingState, agents, horizon, names, options, callbacksOpt)
   if (callbacksOpt !== undefined && callbacksOpt.final !== undefined) {
     let final = callbacksOpt.final
     let finalState = traj[traj.length - 1][0]
@@ -386,7 +389,7 @@ let trajectoryToActionsString = function(trajectory) {
  * of [lastState, array of accumulated rewards by players]
  *
  */
-let trajectory = function (game, startingState, agents, timeLeft, names, callbacksOpt) {
+let trajectory = function (game, startingState, agents, timeLeft, names, options, callbacksOpt) {
   let computeStateRewards = function(state) {
     return map(function(agent) {
       let stateUtility = agent.getStateUtility
@@ -412,12 +415,19 @@ let trajectory = function (game, startingState, agents, timeLeft, names, callbac
       let actingPlayer = assertDefined(agents[turn(state)],
       "trajectory(): failed to compute acting player as element" +
         " at index " + turn(state) + " in array " + toString(agents))
+      let name = names[turn(state)]
       explain("+++++++++++++++++++++++++++++++++++++++++++++")
-      explain("New iteration. Time left: " + timeLeft + ", " + names[turn(state)] + " to act")
+      explain("New iteration. Time left: " + timeLeft + ", " + name + " to act")
       let act = actingPlayer.act
       let start = _.now()
       debug(state)
-      let action = sample(act(state))
+      let actionDist = act(state)
+      // if (options.printActionDistributions) {
+      //   let distAsString = discreteDistributionToString(actionDist, actionDist.supp)
+      //   display(name + " will choose an action according to this distribution:")
+      //   display(distAsString)
+      // }
+      let action = sample(actionDist)
       let end = _.now()
       explain("\nAction computed: " + action + ". Took " + (end - start) + " msec")
       explain("+++++++++++++++++++++++++++++++++++++++++++++\n")
@@ -448,9 +458,9 @@ let printAgentsSetup = function (agents, names) {
   if (agents.length === 0) return
   explain("Agent: " + names[0])
   explain("Params: ")
-  explain(agents[0].params)
+  explain(toString(agents[0].params))
   explain("Initial state: ")
-  explain(agents[0].initialState)
+  explain(toString(agents[0].initialState))
   explain("-----------------------------------------")
   printAgentsSetup(agents.slice(1), names.slice(1))
 }

@@ -40,7 +40,8 @@ let getLogger = function(level) {
       error("displayIfLevelHighAndFlag(): indent expected >= 0, " +
       "but found: " + indent)
     }
-    if (level >= treshold && flag) {
+    let loggingLevel = globalStore.loggingLevel || level
+    if (loggingLevel >= treshold && flag) {
       display(spaces(indent) + message)
     }
   }

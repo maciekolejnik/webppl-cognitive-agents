@@ -1,0 +1,13 @@
+// run with
+// > webppl <path to this file> --require <path to webppl-cognitive-agent package>
+// e.g.
+// > webppl test/installation.wppl --require .
+// when run from the top level of the package directory
+
+let greeting = flip() ? 'Hello' : 'Hi'
+// use a function identity, defined by the package
+let installation = identity(
+  'The installation of the webppl-cognitive-agents package has been succesful.'
+)
+
+greeting + ' user!\n' + installation
