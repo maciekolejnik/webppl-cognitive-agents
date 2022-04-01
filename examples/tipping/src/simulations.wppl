@@ -1,6 +1,6 @@
 /** To run
- $
- */
+ $ webppl examples/tipping/src/simulations.wppl --require . --require examples/tipping [--] [--help] [--experiment <experimentID>] [--scenario <scnearioID>]
+*/
 
 /** Setup game structure */
 let defaultOptions = {
