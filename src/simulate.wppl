@@ -1,41 +1,117 @@
-/** This file contains a few functions useful for simulating
- * execution of games specified separately by defining getGameSetup.
- * It is expected that most users will want to define some scenarios,
- * each specifying initial setup of agents, and use 'simulateScenarios'
- * to simulate the unfolding of such scenario. */
+/**
+ * @fileoverview This file provides a framework for running simulations.
+ * The convention is that, having encoded game's specification, one defines
+ * a number of _experiments_, each consisting of one or more _scenarios_.
+ * An order is assumed on experiments and scenarios, and a subset is selected
+ * to be simulated on the command line. Scenarios must follow a format given
+ * below.
+ * @see simulationTemplate.wppl
+ */
 
-/** Each scenario should contain the following elements:
- * - *name* of the scenario, possibly including a short description
- * - *agents* - array of agent parameters, specifying setup of each agent
- * - *gameSpecificParams* - parameters to be passed to getGameSetup
- * - *startingState*? - state from which to start simulation (optional)
- * - *options* - specifies simulation parameters such as
- *    - *horizon*
- *    - *beliefRepresentation*
- *    - *printActionDistributions* (optional) if true, computed action
- *     distributions are printed
- * */
+/**
+ * Each standard scenario should contain the following elements:
+ * @param {string} name of the scenario, possibly including a short description
+ * @param {object[]} agents array of agent parameters, specifying setup of each agent
+ * @param {object} gameSpecificParams parameters to be passed to getGameSetup
+ * @param {?*} startingState state from which to start simulation
+ *          (optional, by default, initial state of the game)
+ * @param {{
+ *   horizon: number,
+ *   beliefRepresentation: string,
+ *   printActionDistributions: boolean
+ * }} options specifies simulation parameters
+ *
+ * Otherwise, if one needs a scenario that does something unique, one must
+ * define a non-standard scenario which
+ */
 
-/** Run an experiment
- *  There are two possibilities:
- *  (1) either the experiment is standard and requires no parameters or
- *  (2) it's a custom experiment, possibly accepting parameters
+/**
+ * Each _standard_ experiment should contain the following elements:
+ * @param {string} name of the experiment
+ * @param {string} desc description of the experiment,
+ * @param {object[]} scenarios array of scenarios (see above)
+ * @param {?number} runsDefault how many times to simulate each scenario
+ *                                    (by default 1)
+ * @param {?string[]} names optional array of names for agents
+ * @param {?function} getParams
+ * @param {?{setup: function, periodic: function, final: function}} callbacks
+ *          optional code to execute at the start/after each round/at the end
+ *          of each scenario
+ * @param {?function} wrapUp
+ *    an optional function (Trajectory[] -> Scenario[] -> *) that interprets
+ *    obtained trajectories
  *
- *  In case (1), the experiment is run by retrieving its scenarios,
- *  agent names, callbacks etc (which must be passed within the
- *  experiment) and using *simulateScenarios* directly
+ * Otherwise, a custom experiment may be defined which has a simpler structure:
+ * @param {function} run function that runs the experiment
+ * @param {?function} getParams optional function to be called to obtain
+ *    parameters, it takes the commandline as an argument
+ */
+
+/**
+ * Processes the arguments passed on the commandline and runs the selected
+ * scenario(s)/experiment(s). All experiments are run unless argv specifies
+ * a particular experiment to run. If that is the case
+ * @param {function} makeGame provides a way to instantiate the game
+ * @param {object[]} experiments an array of experiments (see above)
+ * @param {object} argv command line arguments
+ */
+let processCommandline = function(makeGame, experiments, argv) {
+  info('processCommandLine(' + makeGame + ', ' + experiments + ', ' + argv + ')')
+  assertDefinedNotNull(experiments, "processCommandLine(): experiments undefined")
+  assertIsArray(experiments, OBJECT_TYPE, -1,
+      "processCommandLine(): experiments not an array!; found: " +
+      toString(experiments))
+  let log = argv.log
+  if (log) {
+    assertHasType(log, NUMBER_TYPE,
+        'processCommandLine(): --log must be a number; found: ' + log)
+    globalStore.loggingLevel = log
+  }
+  let help = argv.help
+  if (help) {
+    printInfo(experiments)
+    return
+  }
+  let experimentIDStr = argv.experiment
+  if (isDefined(experimentIDStr)) {
+    /** run only selected experiment */
+    let experimentID = parseInt(experimentIDStr)
+    assert(experimentID >= 0 && experimentID < experiments.length,
+        "experimentID must be a valid index into experiments array" +
+        " of length " + experiments.length + " but passed: " + experimentID)
+    let experiment = experiments[experimentID]
+    let result = run(experiment, makeGame, argv)
+    return extend(result, { experimentID })
+  }
+  return runAll(experiments, makeGame, argv)
+}
+
+/**
+ * Runs an experiment
+ * There are two possibilities:
+ * (1) either the experiment is standard and requires no parameters or
+ * (2) it's a custom experiment, possibly accepting parameters
  *
- *  In case (2), the experiment is run by calling the run() function
- *  (which must be passed in the experiment object) and optionally
- *  passing it parameters, retrieved from the commandline by getParams()
- *  function (which must be passed in the experiment object if parameters
- *  are needed for the run function)
- *  */
+ * In case (1), the experiment is run by retrieving its scenarios,
+ * agent names, callbacks etc (which must be passed within the
+ * experiment) and using *simulateScenarios* directly
+ *
+ * In case (2), the experiment is run by calling the run() function
+ * (which must be passed in the experiment object) and optionally
+ * passing it parameters, retrieved from the commandline by getParams()
+ * function (which must be passed in the experiment object if parameters
+ * are needed for the run function)
+ * @param {object} experiment see above for format
+ * @param {function} makeGame 'game constructor'
+ * @param {object} argv arguments passed on the command line
+ * @returns {*} the result from running the experiment
+ */
 let run = function(experiment, makeGame, argv) {
-  info('run(' + experiment + ", " + makeGame + ", " + argv)
+  info('run() experiment ' + experiment.name)
   let getParams = experiment.getParams
-  let params = (isDefined(getParams)) ? getParams() : {}
+  let params = (isDefined(getParams)) ? getParams(argv) : {}
   if (isDefined(experiment.run)) {
+    info('run(): experiment.run defined, running...')
     /** case (2) */
     let run = experiment.run
     let result = run(params)
@@ -44,6 +120,7 @@ let run = function(experiment, makeGame, argv) {
     }
   }
   /** case (1) */
+  info('run(): experiment.run undefined, proceeding in standard way')
   let names = experiment.names
   let callbacks = experiment.callbacks
   let getScenarios = experiment.getScenarios
@@ -54,6 +131,7 @@ let run = function(experiment, makeGame, argv) {
   assert(runs > 0, "runs must be greater than 0")
   let scenarioIDStr = argv.scenario
   if (isDefined(scenarioIDStr)) {
+    info('run(): running scenario ' + scenarioIDStr)
     assert(isDefined(argv.experiment), "can't specify scenarioID " +
       "without specifying experimentID!")
     let scenarioID = parseInt(scenarioIDStr)
@@ -68,11 +146,19 @@ let run = function(experiment, makeGame, argv) {
       result
     }
   }
+  info('run(): simulating all scenarios...')
   let trajectories = simulateScenarios(scenarios, makeGame, names, callbacks, runs)
   let result = wrapUp(trajectories, scenarios)
   return { result }
 }
 
+/**
+ * Runs all the experiments provided.
+ * @param {object[]} experiments
+ * @param {function} makeGame
+ * @param {object} argv
+ * @returns {*}
+ */
 let runAll = function(experiments, makeGame, argv) {
   return map(function(experiment) {
     return run(experiment, makeGame, argv)
@@ -80,77 +166,74 @@ let runAll = function(experiments, makeGame, argv) {
 }
 
 /**
- *
- * @param makeGame
- * @param experiments | an array of experiments where each experiment
- * is of the form
- * {
- *   name: <name of the experiment>,
- *   desc: <description of the experiment>,
- *   scenarios: <array of scenarios>,
- *   runsDefault: <how many times to simulate each scenario>? (optional),
- *   names: <names of agents>? (optional),
- *   callbacks: <object (setup, periodic, final...)>? (optional)
- * }
- * @param argv
+ * Simulates the execution of a game under a specified scenario, which defines
+ * parameters and initial states of agents and parameters of the game.
+ * @param {{
+ * name: string,
+ * options: object,
+ * agents: {
+ *     params: {
+ *          goalCoeffs: number[],
+ *          metaParams: {
+ *            alpha: number,
+ *            discountFactor: number,
+ *            lookAhead: number
+ *          }
+ *        },
+ *        initialState: {
+ *          belief: object[],
+ *          mentalEstimations: object[][],
+ *          metaParamsEstimations: {alpha: object[], discountFactor: object[], lookAhead: object[]}
+ *        }
+ *      }
+ * }} scenario
+ * @param {object} gameSetup defines specifics of a modeled game
+ * @param {string[]} names
+ * @param {?{setup: function, periodic: function, final: function}} callbacksOpt*
+ * @returns {*[]} the trajectory of this scenario, which takes form of an array
+ * of (state, action) pairs. Note that the last pair contains a state and an
+ * array of total rewards accumulated by agents throughout execution
  */
-let processCommandline = function(makeGame, experiments, argv) {
-  info('processCommandLine(' + makeGame + ', ' + experiments + ', ' + argv + ')')
-  assertDefined(experiments, "processCommandLine(): experiments undefined")
-  assertIsArray(experiments, OBJECT_TYPE, -1,
-    "processCommandLine(): experiments not an array!; found: " +
-    toString(experiments))
-  let log = argv.log
-  if (log) {
-    assertHasType(log, NUMBER_TYPE,
-      'processCommandLine(): --log must be a number; found: ' + log)
-    globalStore.loggingLevel = log
-  }
-  let help = argv.help
-  if (help) {
-    printInfo(experiments)
-    return
-  }
-  let experimentIDStr = argv.experiment
-  if (isDefined(experimentIDStr)) {
-    /** run only selected experiment */
-    let experimentID = parseInt(experimentIDStr)
-    assert(experimentID >= 0 && experimentID < experiments.length,
-      "experimentID must be a valid index into experiments array" +
-      " of length " + experiments.length + " but passed: " + experimentID)
-    let experiment = experiments[experimentID]
-    let result = run(experiment, makeGame, argv)
-    return extend(result, { experimentID })
-  }
-  return runAll(experiments, makeGame, argv)
+let simulateScenario = function (scenario, gameSetup, namesDefault, callbacksOpt) {
+  info('simulateScenario() with a scenario ' + scenario.name)
+  /** here we're validating user input */
+  validateScenario(scenario)
+  let options = scenario.options
+  explain(emphasiseString("Scenario: " + scenario.name))
+  let agentsSetup = scenario.agents
+  let names = scenario.names || namesDefault
+  printAgentsSetup(agentsSetup, names)
+  let game = makeCSMG(gameSetup, options)
+  let agents = mapIndexed(function (i, agentSetup) {
+    return makeAgent(agentSetup.params, i, agentSetup.initialState, game)
+  }, agentsSetup)
+  let trajectory = simulate(game, agents, options.horizon, names, options, callbacksOpt, scenario.startingState)
+  explain("Sequence of actions computed:")
+  explain(map(snd, trajectory.slice(0,-1)))
+  return trajectory
 }
 
 /**
- *
- * @param scenarios
- * @param getGameSetup
- * @param namesOpt | optional but strongly recommended
- * @param callbacksOpt | (optional) object of the form
- * {
- *   setup: <function>,
- *   periodic: <function>,
- *   final: <function>
- * }
- * containing functions to be called at the start,at each step and at
- * the end of executing each scenario. That allows some code, mainly in the form
- * of informational print statements, to be called as the game executes.
- * Each function is passed the following arguments:
- * game, agents, state, names
- * @param numberOfRunsOpt | (optional) how many times to run each scenario
- *
- * @returns {Array<Array<>>} an array of arrays of trajectories
+ * Simulates the execution of a game under provided scenarios.
+ * @param {object[]} scenarios see above for format
+ * @param {function} getGameSetup
+ * @param {?string[]} namesOpt optional names of agents
+ * @param {?{setup: function, periodic: function, final: function}} callbacksOpt
+ *    (optional) set of functions to be called at the start, at each step and at
+ *    the end of executing each scenario. That allows some code, mainly in the
+ *    form of informational print statements, to be called as the game executes.
+ *    Each function is passed the following arguments:
+ *     game, agents, state, names
+ * @param {?number} numberOfRunsOpt how many times to run each scenario
+ * @returns {*[][]} an array of arrays of trajectories
  * [<scenario 1 trajectories>, <scenario 2 trajectories>, ...]
  */
 let simulateScenarios = function (scenarios, getGameSetup, namesOpt, callbacksOpt, numberOfRunsOpt) {
+  info('simulateScenarios() called with ' + scenarios.length + ' scenarios.')
   /** First check params passed correctly */
   assertIsArray(scenarios, ANY_TYPE, -1,
     "simulateScenarios(): expected scenarios array, found: " + toString(scenarios))
-  assertDefined(getGameSetup, "simulateScenarios(): getGameSetup undefined")
+  assertDefinedNotNull(getGameSetup, "simulateScenarios(): getGameSetup undefined")
   if (scenarios.length == 0) return []
   let nextScenario = scenarios[0]
   let gameSetup = getGameSetup(nextScenario.gameSpecificParams)
@@ -165,73 +248,28 @@ let simulateScenarios = function (scenarios, getGameSetup, namesOpt, callbacksOp
 }
 
 /**
- * @param scenario {Object} has format
- * {
- * name: <name of scenario>,
- * options: <array of params to be passed to 'getGameSetup'>
- * agents: array of initial setups of agents of the form
- *   {
- *     params: {
-         goalCoeffs: <array of goal coeffs>,
-         metaParams: {
-           alpha: <val>,
-           discountFactor: <val>,
-           lookAhead: <val>
-         }
-       },
-       initialState: {
-         belief: <array of beliefs>,
-         mentalEstimations: <array of arrays of estimations (dists)>,
-         metaParamsEstimations
-       }
-     }
- * }
- * @param gameSetup {Object} defines specifics of a modeled game
- * @param names {Array<String>}
- * @param callbacksOpt {Object} (optional) gives functions to call
- * at the start of scenario (setup), after each action (periodic)
- * and at the end of scenario (final)
- *
- * @returns {Array<Pair<State,Action>>} the trajectory of this
- * scenario, i.e., an array of (state, action) pairs. Note that
- * the last pair contains a state and an array of total rewards
- * accumulated by agents throughout execution
+ * Validates a passed scenario, i.e., makes sure that all the required
+ * fields are present and have correct types
+ * @param {object} scenario see above for format
  */
-let simulateScenario = function (scenario, gameSetup, namesDefault, callbacksOpt) {
-  /** here we're validating user input */
-  validateScenario(scenario)
-  let options = scenario.options
-  explain(stringInABox("Scenario: " + scenario.name))
-  let agentsSetup = scenario.agents
-  let names = scenario.names || namesDefault
-  printAgentsSetup(agentsSetup, names)
-  let game = makeCSMG(gameSetup, options)
-  let agents = mapIndexed(function (i, agentSetup) {
-    return makeAgent(agentSetup.params, i, agentSetup.initialState, game)
-  }, agentsSetup)
-  let trajectory = simulate(game, agents, options.horizon, names, options, callbacksOpt, scenario.startingState)
-  explain("Sequence of actions computed:")
-  explain(map(snd, trajectory.slice(0,-1)))
-  return trajectory
-}
-
 let validateScenario = function(scenario) {
-  assertDefined(scenario, "simulateScenario: scenario undefined")
+  info('validateScenario() with scenario ' + scenario.name)
+  assertDefinedNotNull(scenario, "simulateScenario: scenario undefined")
 
   /** NAME */
-  let name = assertDefined(scenario.name,
+  let name = assertDefinedNotNull(scenario.name,
     "simulateScenario: scenario.name undefined")
 
   let failMsgInto = "simulateScenario() for scenario: " + name + ": "
 
   /** OPTIONS */
-  let options = assertDefined(scenario.options,
+  let options = assertDefinedNotNull(scenario.options,
     failMsgInto + "scenario.options undefined")
-  let horizon = assertDefined(options.horizon,
+  let horizon = assertDefinedNotNull(options.horizon,
     failMsgInto + "options.horizon undefined")
   assertHasType(horizon, INT_TYPE,
     failMsgInto + "options.horizon has wrong type")
-  let beliefRep = assertDefined(options.beliefRepresentation,
+  let beliefRep = assertDefinedNotNull(options.beliefRepresentation,
     failMsgInto + "options.beliefRep undefined")
   assertHasType(beliefRep, STRING_TYPE,
     failMsgInto + "options.beliefRep has wrong type")
@@ -242,29 +280,29 @@ let validateScenario = function(scenario) {
     let agentFailMsgIntro = "agent " + agentsNumber + ": "
 
     /** PARAMS */
-    let params = assertDefined(agentSetup.params,
+    let params = assertDefinedNotNull(agentSetup.params,
       agentFailMsgIntro + "params not specified")
-    let goalCoeffs = assertDefined(params.goalCoeffs,
+    let goalCoeffs = assertDefinedNotNull(params.goalCoeffs,
       agentFailMsgIntro + "goalCoeffs undefined")
     assertIsArray(goalCoeffs, NUMBER_TYPE, -1,
       agentFailMsgIntro + "goalCoeffs not as expected")
 
     /** METAPARAMS */
-    let metaParams = assertDefined(params.metaParams,
+    let metaParams = assertDefinedNotNull(params.metaParams,
       agentFailMsgIntro + "meta params undefined")
-    let alpha = assertDefined(metaParams.alpha,
+    let alpha = assertDefinedNotNull(metaParams.alpha,
       agentFailMsgIntro + "alpha undefined")
     assertHasType(alpha, NUMBER_TYPE,
       agentFailMsgIntro + "alpha is not a number!")
     assert(alpha >= 0,
       agentFailMsgIntro + "alpha can't be negative!")
-    let discountFactor = assertDefined(metaParams.discountFactor,
+    let discountFactor = assertDefinedNotNull(metaParams.discountFactor,
       agentFailMsgIntro + "discount factor undefined")
     assertHasType(discountFactor, NUMBER_TYPE,
       agentFailMsgIntro + "discount factor is not a number!")
     assert(discountFactor >= 0 && discountFactor <= 1,
       agentFailMsgIntro + "discount factor must be between 0 and 1!")
-    let lookAhead = assertDefined(metaParams.lookAhead,
+    let lookAhead = assertDefinedNotNull(metaParams.lookAhead,
       agentFailMsgIntro + "lookahead undefined")
     assertHasType(lookAhead, INT_TYPE,
       agentFailMsgIntro + "lookahead must be an integer!")
@@ -272,31 +310,31 @@ let validateScenario = function(scenario) {
       agentFailMsgIntro + "lookahead can't be negative!")
 
     /** INITIAL STATE */
-    let initialState = assertDefined(agentSetup.initialState,
+    let initialState = assertDefinedNotNull(agentSetup.initialState,
       agentFailMsgIntro + "initial state undefined")
-    let belief = assertDefined(initialState.belief,
+    let belief = assertDefinedNotNull(initialState.belief,
       agentFailMsgIntro + "belief undefined")
     assertIsArray(belief, ANY_TYPE, agentsNumber,
       agentFailMsgIntro + "belief must be array indexed by" +
       " agentID, found: " + toString(belief))
-    let mentalEstimations = assertDefined(initialState.mentalEstimations,
+    let mentalEstimations = assertDefinedNotNull(initialState.mentalEstimations,
       agentFailMsgIntro + "mental estimations undefined")
     assertIsArray(mentalEstimations, OBJECT_TYPE, agentsNumber,
       agentFailMsgIntro + "mental estimations must be an array " +
       "of distributions indexed by agentID; found: " + toString(mentalEstimations))
-    let metaParamsEstimations = assertDefined(initialState.metaParamsEstimations,
+    let metaParamsEstimations = assertDefinedNotNull(initialState.metaParamsEstimations,
       agentFailMsgIntro + "metaParamsEstimations undefined")
-    let alphaEst = assertDefined(metaParamsEstimations.alpha,
+    let alphaEst = assertDefinedNotNull(metaParamsEstimations.alpha,
       agentFailMsgIntro + "alpha estimations undefined")
     assertIsArray(alphaEst, OBJECT_TYPE, agentsNumber,
       agentFailMsgIntro + "alpha estimations should be an array" +
       " of distributions indexed by agentID; found: " + toString(alphaEst))
-    let lookaheadEst = assertDefined(metaParamsEstimations.lookAhead,
+    let lookaheadEst = assertDefinedNotNull(metaParamsEstimations.lookAhead,
       agentFailMsgIntro + "lookahead estimations undefined")
     assertIsArray(lookaheadEst, OBJECT_TYPE, agentsNumber,
       agentFailMsgIntro + "lookahead estimations should be an array" +
       " of distributions indexed by agentID; found: " + toString(lookaheadEst))
-    let discountFactorEst = assertDefined(metaParamsEstimations.discountFactor,
+    let discountFactorEst = assertDefinedNotNull(metaParamsEstimations.discountFactor,
       agentFailMsgIntro + "discount factor estimations undefined")
     assertIsArray(discountFactorEst, OBJECT_TYPE, agentsNumber,
       agentFailMsgIntro + "discount factor estimations should be an array" +
@@ -309,31 +347,37 @@ let validateScenario = function(scenario) {
     validateAgents(agentsArr.slice(1), agentID + 1, agentsNumber)
   }
   /** AGENTS */
-  let agents = assertDefined(scenario.agents,
+  let agents = assertDefinedNotNull(scenario.agents,
     failMsgInto + "scenario.agents undefined")
   let noOfAgents = agents.length
   validateAgents(agents, 0, noOfAgents)
+
+  info('validateScenario(): validation successful!')
 }
 
 
-/** Simulate execution of *game* played by *agents* for *horizon*
- * steps. Additionally, optional arguments allow one to:
+/**
+ * Simulate execution of a game played by agents for a number (_horizon_)
+ * of steps. Additionally, optional arguments allow one to:
  * - specify a starting state other than initial state
  * - provide functions that will be called at the start
  * of simulation (callbacksOpt.setup) and at every iteration
  * (callbacksOpt.periodic)
  * - namesOpt
  *
- * @param game | instance of CSMG created by calling makeCSMG()
- * @param agents | array of agents, each created by calling makeAgent()
- * @param horizon | integer specifying number of steps
- * @param names | array of names of agents
- * @param callbacksOpt (optional) | functions to call during simulation
- * @param stateOpt (optional)
- * @returns an array of (state, action) pairs
+ * @param {object} game instance of CSMG created by calling makeCSMG()
+ * @param {object[]} agents array of agents, each created by calling makeAgent()
+ * @param {number} horizon integer specifying number of steps
+ * @param {string[]} names names of agents
+ * @param {?object} callbacksOpt optional functions to call during simulation
+ * @param {?*} stateOpt optional starting state
+ * @returns {*[][]} a trajectory, i.e., an array of [state, action] pairs
+ *  with an extra element at the end that is a [state, rewards] pair, where
+ *  rewards is an array of rewards accumulated by agents, indexed by agent IDs
  */
-let simulate = function (game, agents, horizon, names, options, callbacksOpt, stateOpt) {
-  assertDefined(game.initialState,
+let simulate = function(
+    game, agents, horizon, names, options, callbacksOpt, stateOpt) {
+  assertDefinedNotNull(game.initialState,
     "simulate(): game.initialState undefined")
   let startingState = stateOpt || game.initialState
   explain("Simulation starts.")
@@ -344,7 +388,8 @@ let simulate = function (game, agents, horizon, names, options, callbacksOpt, st
     let setup = callbacksOpt.setup
     setup(game, agents, startingState, names)
   }
-  let traj = trajectory(game, startingState, agents, horizon, names, options, callbacksOpt)
+  let traj = trajectory(
+      game, startingState, agents, horizon, names, options, callbacksOpt)
   if (callbacksOpt !== undefined && callbacksOpt.final !== undefined) {
     let final = callbacksOpt.final
     let finalState = traj[traj.length - 1][0]
@@ -384,12 +429,21 @@ let trajectoryToActionsString = function(trajectory) {
 }
 
 /**
- * Returns an array of [state,action] pairs except that since game ends
- * at a state (with no action), last element of the array contains a pair
- * of [lastState, array of accumulated rewards by players]
- *
+ * Computes a trajectory, i.e., execution trace, of a game, starting in a given
+ * state and executing randomly for a specified number of steps.
+ * @param {object} game
+ * @param {*} startingState
+ * @param {object[]} agents
+ * @param {number} timeLeft
+ * @param {string[]} names
+ * @param {object} options
+ * @param {?object} callbacksOpt
+ * @returns {*[]} an array of [state,action] pairs except that since game ends
+ *    at a state (with no action), last element of the array contains a pair
+ *    of [lastState, array of accumulated rewards by players]
  */
-let trajectory = function (game, startingState, agents, timeLeft, names, options, callbacksOpt) {
+let trajectory = function(
+    game, startingState, agents, timeLeft, names, options, callbacksOpt) {
   let computeStateRewards = function(state) {
     return map(function(agent) {
       let stateUtility = agent.getStateUtility
@@ -410,9 +464,9 @@ let trajectory = function (game, startingState, agents, timeLeft, names, options
       "size than stateRewards: " + accumulatedRewards.length + " vs " +
     stateRewards.length)
     if (timeLeft > 0) {
-      let turn = assertDefined(game.API.turn,
+      let turn = assertDefinedNotNull(game.API.turn,
         "trajectory(): game.API.turn undefined")
-      let actingPlayer = assertDefined(agents[turn(state)],
+      let actingPlayer = assertDefinedNotNull(agents[turn(state)],
       "trajectory(): failed to compute acting player as element" +
         " at index " + turn(state) + " in array " + toString(agents))
       let name = names[turn(state)]
@@ -422,11 +476,6 @@ let trajectory = function (game, startingState, agents, timeLeft, names, options
       let start = _.now()
       debug(state)
       let actionDist = act(state)
-      // if (options.printActionDistributions) {
-      //   let distAsString = discreteDistributionToString(actionDist, actionDist.supp)
-      //   display(name + " will choose an action according to this distribution:")
-      //   display(distAsString)
-      // }
       let action = sample(actionDist)
       let end = _.now()
       explain("\nAction computed: " + action + ". Took " + (end - start) + " msec")
@@ -449,7 +498,7 @@ let trajectory = function (game, startingState, agents, timeLeft, names, options
   }
   let noOfAgents = agents.length
   let accumulatedRewards = repeat(noOfAgents, getConstantFn(0))
-  trajectoryRec(startingState, timeLeft, accumulatedRewards)
+  return trajectoryRec(startingState, timeLeft, accumulatedRewards)
 }
 
 let printAgentsSetup = function (agents, names) {
@@ -465,7 +514,15 @@ let printAgentsSetup = function (agents, names) {
   printAgentsSetup(agents.slice(1), names.slice(1))
 }
 
-/** Few auxiliary functions to facilitate creating scenarios */
+/**
+ * Constructs the params object of an agent.
+ * @param {number[]} goalCoeffs array of numbers between 0 and 1 that sum to 1
+ * @param {number} alpha a non negative number
+ * @param {number} discountFactor a number between 0 and 1
+ * @param {number} lookAhead an integer, typically <10
+ * @param {boolean} usesHeuristics
+ * @returns {{metaParams: {lookAhead, alpha, discountFactor}, goalCoeffs, usesHeuristics}}
+ */
 let generateParams = function(goalCoeffs, alpha, discountFactor, lookAhead, usesHeuristics) {
   return {
     /** format [physical goal, mental goal] */
@@ -479,19 +536,37 @@ let generateParams = function(goalCoeffs, alpha, discountFactor, lookAhead, uses
   }
 }
 
-/** note that belief and mentalEstimations have to be filled in later */
+/**
+ * Constructs an object representing initial state of an agent. Note that
+ * belief and mentalEstimations have to be filled in later. The assumption
+ * here is that meta-parameters estimations are Dirac distributions and are
+ * the same for all agents (most useful when there are two agents).
+ * @param {number} agentID
+ * @param {number} numberOfAgents
+ * @param {number} alphaExp rationality expectation
+ * @param {number} discountExp
+ * @param {number} lookAheadExp
+ * @returns {{
+ *   mentalEstimations: object[],
+ *   belief: object[],
+ *   metaParamsEstimations: {
+ *     lookAhead: object[],
+ *     alpha: object[],
+ *     discountFactor: object[]
+ *   }
+ * }}
+ */
 let generateInitialState = function(agentID, numberOfAgents, alphaExp, discountExp, lookAheadExp) {
   let alpha = repeat(numberOfAgents, function() {return Delta({v: alphaExp})})
   let discountFactor = repeat(numberOfAgents, function() {return Delta({v: discountExp})})
   let lookAhead = repeat(numberOfAgents, function() {return Delta({v: lookAheadExp})})
   return {
-    belief: repeat(numberOfAgents, getUndefined),
-      // function() { return Delta({v: undefined})}),
-    mentalEstimations : repeat(numberOfAgents, getUndefined),
+    belief: repeat(numberOfAgents, getNull),
+    mentalEstimations : repeat(numberOfAgents, getNull),
     metaParamsEstimations: {
-      alpha: arrayReplace(alpha, agentID, undefined),
-      lookAhead: arrayReplace(lookAhead, agentID, undefined),
-      discountFactor: arrayReplace(discountFactor, agentID, undefined)
+      alpha: arrayReplace(alpha, agentID, null),
+      lookAhead: arrayReplace(lookAhead, agentID, null),
+      discountFactor: arrayReplace(discountFactor, agentID, null)
     }
   }
 }
@@ -535,9 +610,9 @@ let printInfo = function(experiments) {
   let numberOfExperiments = experiments.length
   display("There are " + numberOfExperiments + " experiments available:")
   mapIndexed(function(index, experiment) {
-    let name = assertDefined(experiment.name,
+    let name = assertDefinedNotNull(experiment.name,
       "processCommandline(): experiment.name undefined!")
-    let desc = assertDefined(experiment.desc,
+    let desc = assertDefinedNotNull(experiment.desc,
       "processCommandline(): experiment.desc undefined!")
     display("\n" + index + ": " + name)
     display(desc)

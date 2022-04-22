@@ -1,73 +1,108 @@
-/** dependencies:
- * - auxiliary
- * - lambdas
- */
-/** TODO: It'd be better to have less dependencies, eg
+/**
+ * @fileoverview Provides printing functionality to webppl programs.
+ *
+ * @todo: It'd be better to have less dependencies, eg
  * functions here should not call reduceL as one might want
  * to call printing functions from reduceL which would cause an
- * infinite loop */
-/** PRINTING */
+ * infinite loop
+ *
+ * @requires auxiliary.wppl
+ * @requires lambdas.wppl
+ */
 
-/** webppl prints arrays without [ and ] for some reason. fix that here
+/**
+ * The main printing function that knows how to stringify any object.
+ * @param {*} x
+ * @returns {string} textual representation of x
+ */
+let toString = function(x) {
+  if (x === undefined) return 'undefined'
+  if (x === null) return 'null'
+  /** typeof x gives 'object' when called on an array so check here */
+  if (_top.Array.isArray(x)) return arrayToString(x)
+  if (typeof x === 'function') return 'function ' + x.name
+  if (typeof x === 'object') return objectToString(x)
+  /** at this point it's number/string/boolean */
+  return '' + x
+}
+
+/**
+ * Converts an array to a string. Actually, webppl already prints arrays
+ * but 1. it does that without [ and ] for some reason, 2. it's not deep
+ * so works well only for arrays of primitives.
+ * @param {*[]} array
+ * @returns {string}
  */
 let arrayToString = function(array) {
-    if (isUndefined(array)) return "undefined"
-    if (array.length == 0) return "[]"
-    let f = function(acc, elem) {
-        if (acc.length === 0) return toString(elem)
-        return acc + ", " + toString(elem)
+  if (isUndefined(array)) return 'undefined'
+  if (isNull(array)) return 'null'
+  if (array.length == 0) return '[]'
+  let f = function(acc, elem) {
+    if (acc.length === 0) {
+      return toString(elem)
     }
-    return "[" + reduceL(f, "", array) + "]"
+    return acc + ', ' + toString(elem)
+  }
+  return '[' + reduceL(f, '', array) + ']'
 }
 
+/**
+ * Recursively converts an object to a string.
+ * @param {object} obj
+ * @returns {string}
+ */
 let objectToString = function(obj) {
-    let keys = _top.Object.keys(obj)
-    let result = reduceL(function(acc, key) {
-        let keyValuePair = key + ": " + toString(obj[key])
-        if (acc.length == 1) return acc + keyValuePair
-        return acc + ", " + keyValuePair
-    }, "{", keys)
-    return result + "}"
+  let keys = _top.Object.keys(obj)
+  let result = reduceL(function(acc, key) {
+    let keyValuePair = key + ': ' + toString(obj[key])
+    if (acc.length == 1) return acc + keyValuePair
+    return acc + ', ' + keyValuePair
+  }, '{', keys)
+  return result + '}'
 }
 
-let toString = function(x) {
-    if (x === undefined) return "undefined"
-    if (x === null) return "null"
-    if (_top.Array.isArray(x)) return arrayToString(x)
-    if (typeof x === 'object') return objectToString(x)
-    return x
-}
-
-
+/**
+ * Convert a discrete distribution to a user-friendly format.
+ * @param {object} dist a distribution to be printed (must be discrete)
+ * @param {*[]} support of the above distribution
+ * @returns {string}
+ */
 let discreteDistributionToString = function(dist, support) {
-    /** retrieve probabilities, store as pairs, with prob first so
-     * that comparison is easier */
-    let elemProbPairs = map(function(elem) {
-        return [Math.exp(dist.score(elem)), elem]
-    }, support)
-    let sorted = sort(elemProbPairs, gt, fst)
-    reduceL(function(acc, probElemPair) {
-        let elem = probElemPair[1]
-        let prob = probElemPair[0]
-        // let line = toString(action) + ": " + prob
-        /** temporary change to facilitate graphing */
-        let line = "(" +  toString(elem) + "," + prob + ")"
-        if (acc.length === 0) return acc + line
-        return acc + "\n" + line
-    }, "", sorted)
+  /** retrieve probabilities, store as pairs, with prob first so
+   * that comparison is easier */
+  let elemProbPairs = map(function(elem) {
+    return [Math.exp(dist.score(elem)), elem]
+  }, support)
+  let sorted = sort(elemProbPairs, gt, fst)
+  return reduceL(function(acc, probElemPair) {
+    let elem = probElemPair[1]
+    let prob = probElemPair[0]
+    let line = toString(elem) + ': ' + prob
+    /** below format is compatible with latex graphing */
+    // let line = '(' +  toString(elem) + ',' + prob + ')'
+    if (acc.length === 0) return acc + line
+    return acc + '\n' + line
+  }, '', sorted)
 }
 
 
 /**
- * This might be useful for debugging, returns string s in a box, i.e.
+ * Emphasises a given string: when it is not too long, it puts a box
+ * around it, like this
  * +---------------------+
  * |          s          |
  * +---------------------+
- * of appropriate width
+ * When it is long, it just puts a horiontal line at the start and end:
+ * +------------------------------------------------------------+
+ *    bla bla bla  bla ....
+ * +------------------------------------------------------------+
+ * @param {string} s
+ * @returns {string} emphasised s
  */
-let stringInABox = function(s) {
-    let dashes = "-".repeat(s.length + 4)
-    let line = "+" + dashes + "+"
-    let middle = "|  " + s + "  |"
-    return line + "\n" + middle + "\n" + line
+let emphasiseString = function(s) {
+  const len = s.length
+  let dashes = len <= 70 ? '-'.repeat(len + 4) : '-'.repeat(75)
+  let line = '+' + dashes + '+'
+  let middle = len <=  70 ? '|  ' + s + '  |' : s
+  return line + '\n' + middle + '\n' + line
 }

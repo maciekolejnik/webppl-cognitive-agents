@@ -1,106 +1,249 @@
-/** dependencies:
- * - lambdas
+/**
+ * @fileoverview This file implements a basic assertion mechanism as the
+ * default console.assert was deemed unsatisfactory. Crucially, assertions
+ * as implemented below lead to failure of the program when they're not
+ * satisfied, unlike console.assert.
+ *
+ * @requires lambdas.wppl
  */
 
-/** ASSERTIONS
- *  This file implements a basic assertion mechanism as the
- *  default console.assert was deemed unsatisfactory.
- *  Crucially, assertions as implemented below lead
- *  to failure of the program when they're not satisfied,
- *  unlike console.assert.
- */
-
-/** ASSERTIONS PUBLIC API
- *  Functions and constants defined below should be called
- *  by users of */
-
-let INT_TYPE = 'int'
-let NUMBER_TYPE = 'number'
-let STRING_TYPE= 'string'
-let OBJECT_TYPE = 'object'
-let ARRAY_TYPE = 'array'
-let FUNCTION_TYPE = 'function'
-let DIST_TYPE = 'distribution'
-let ANY_TYPE = 'any'
 
 /**
+ * @public
+ */
+const INT_TYPE = 'int'
+const BOOL_TYPE = 'boolean'
+const NUMBER_TYPE = 'number'
+const STRING_TYPE= 'string'
+const OBJECT_TYPE = 'object'
+const ARRAY_TYPE = 'array'
+const FUNCTION_TYPE = 'function'
+const DIST_TYPE = 'distribution'
+const ANY_TYPE = 'any'
+// let UNDEFINED_TYPE = 'undefined'
+
+
+/**
+ * Implements an assertion that a variable has a given type
+ * @param {?*} value the variable whose type is being asserted
+ * @param {string} type the asserted type of the passed value
+ * @param {string} failMsg
+ * @param {?string} succMsgOpt optional success message
  *  assert that *value* has type *type*, if not, print *message*
  */
-let assertHasType = function(value, type, failMsg, succMsgOpt) {
-    if (failMsg === undefined) error("assertHasType called without failMsg!")
-    let typeCheckers = {
-        'int': function(value) { return _top.Number.isInteger(value) },
-        'number': function(value) { return !_top.isNaN(value) },
-        'array': function(value) { return _top.Array.isArray(value)
-          || value === undefined },
-        'distribution': function(value) { return dists.isDist(value)},
-        'any': getConstantFn(true)
-    }
-    let defaultTypeChecker = function (value) {
-        return typeof value === type || value === undefined
-    }
-    let typeChecker = typeCheckers[type] || defaultTypeChecker
-    printSuccessOrRaiseError(typeChecker(value), failMsg, succMsgOpt)
+let assertHasType = function(
+    value, type, failMsg, succMsgOpt) {
+  // if (value === undefined) error('assertHasType: value not found (undefined)')
+  if (typeof type !== 'string') {
+    error('assertHasType: type must be a string, found: ' + type)
+  }
+  if (typeof failMsg !== 'string') {
+    error('assertHasType: failMsg must be a string, found: ' + failMsg)
+  }
+  /**
+   * use typeof when possible, however that's generic
+   * and doesnt cover all cases
+   */
+  let defaultTypeChecker = function (val) {
+    return typeof val === type
+  }
+  let typeCheckers = {
+    'int': function(value) { return _top.Number.isInteger(value) },
+    'array': function(value) { return _top.Array.isArray(value)
+        //|| value === undefined
+    },
+    /**
+     * slightly hacky below, dists.isDist is defined by
+     * webppl and so avaialble to all webppl programs
+     */
+    'distribution': function(value) { return dists.isDist(value)},
+    'any': getConstantFn(true),
+  }
+  let typeChecker = typeCheckers[type] || defaultTypeChecker
+  const msg = 'Assertion failed: ' + failMsg
+  printSuccessOrRaiseError(typeChecker(value), msg, succMsgOpt)
 }
 
-/** assert *array* is an array of elements of type *elementType*,
- * of length *length*. print message otherwise
- * passing length=-1 means no element checking or length checking
+/**
+ * Asserts a value is an array of elements of a specified type with specified
+ * length.
+ * Array length checking can be disabled by passing appropriate
+ * value for length (see below).
+ * Element type checking can be avoided using catch all 'any' type.
+ * @param {!Object} value asserted to be an array
+ * @param {string} elemType asserted type of elements
+ * @param {number} length asserted length of array, or -1 to disable checking
+ * @param {string} failMsg message to print if assertion fails
  */
-let assertIsArray = function(array, elemType, length, message) {
-    if (!_top.Array.isArray(array)) {
-        error("Error: " + message)
-    }
-    mapIndexed(function(index, elem) {
-        assertHasType(elem, elemType, message +
-            ": wrong type at index " + index)
-    }, array)
-    if (length >= 0 && array.length != length) {
-        error("Error: " + message + "\nwrong number of elements: found: "
-            + array.length + ", expected: " + length)
-    }
+let assertIsArray = function(value, elemType, length, failMsg) {
+  if (value === undefined) {
+    error('assertIsArray: value must be passed, but found undefined')
+  }
+  if (typeof elemType !== 'string') {
+    error('assertIsArray: elemType must be a string, found: ' + elemType)
+  }
+  if (!_top.Array.isArray(value)) {
+    error('Assertion failed: ' + failMsg)
+  }
+  mapIndexed(function(index, elem) {
+    const msg = 'wrong type at index ' + index
+    assertHasType(elem, elemType, msg + '\n' + failMsg)
+  }, value)
+  if (length >= 0 && value.length !== length) {
+    error('Assertion failed: wrong number of elements: found: '
+        + value.length + ', expected: ' + length + '\n' + failMsg)
+  }
 }
 
-/** assert a value is defined, failureMsg is optional */
-let assertDefined = function(x, failMsg, succMsgOpt) {
-    // info("assertDefined(" + x + ", failMsg: " + failMsg + ", succMsg: " + succMsg)
-    if (failMsg === undefined) error("assertDefined called without error message!")
-    printSuccessOrRaiseError(x !== undefined, failMsg, succMsgOpt)
-    return x
+/**
+ * Assert a given value is defined (i.e., not 'undefined', can be null)
+ *
+ * @param {Object} value
+ * @param {string} failMsg
+ * @param {?string} succMsgOpt
+ * @returns {Object} the value passed
+ */
+let assertDefined = function(value, failMsg, succMsgOpt) {
+  if (typeof failMsg !== 'string') {
+    error('assertDefined: failMsg must be a string, found: ' + failMsg)
+  }
+  printSuccessOrRaiseError(value !== undefined, failMsg, succMsgOpt)
+  return value
 }
 
-let assertUndefined = function(x, failMsg, succMsgOpt) {
-    if (failMsg === undefined) error("assertUndefined called without error message!")
-    printSuccessOrRaiseError(x === undefined, failMsg, succMsgOpt)
-    return x
+/**
+ * Assert a given value is defined (i.e., not 'undefined') and not null.
+ *
+ * @param {Object} value
+ * @param {string} failMsg
+ * @param {?string} succMsgOpt
+ * @returns {Object} the value passed
+ */
+let assertDefinedNotNull = function(value, failMsg, succMsgOpt) {
+  if (typeof failMsg !== 'string') {
+    error('assertDefined: failMsg must be a string, found: ' + failMsg)
+  }
+  const isNullOrUndefined = value === undefined || value === null
+  printSuccessOrRaiseError(!isNullOrUndefined, failMsg, succMsgOpt)
+  return value
 }
 
-/** asserts x and y are equal, where equality is taken to mean
- *  structural equality */
-let assertEqual = function(x, y, failMsg, succMsg) {
-    let failureMsg = failMsg + ": " + x + " not equal to " + y
-    printSuccessOrRaiseError(_.isEqual(x,y), failureMsg, succMsg)
+/**
+ * @deprecated assertNull should be used instead as null should be used
+ * instead of undefined thorughout the codebase
+ *
+ * @param {Object} value
+ * @param {string} failMsg
+ * @param {?string} succMsgOpt
+ * @returns {Object}
+ */
+let assertUndefined = function(value, failMsg, succMsgOpt) {
+  if (typeof failMsg !== 'string') {
+    error("assertUndefined called without error message!")
+  }
+  printSuccessOrRaiseError(value === undefined, failMsg, succMsgOpt)
+  return value
 }
 
-/** asserts lowerBound <= x <= upperBound */
-let assertBetween = function(x, lowerBound, upperBound, failMsg, succMsg) {
-    assert(lowerBound <= x && x <= upperBound, failMsg, succMsg)
+/**
+ * Asserts that passed value is null
+ *
+ * @param {Object} value
+ * @param {string} failMsg
+ * @param {?string} succMsgOpt
+ * @returns {Object} value passed
+ */
+let assertIsNull = function(value, failMsg, succMsgOpt) {
+  if (value === undefined) {
+    error('assertIsNull: expected first argument to be defined, found undefined')
+  }
+  if (typeof failMsg !== 'string') {
+    error("assertIsNull called without error message!")
+  }
+  printSuccessOrRaiseError(value === null, failMsg, succMsgOpt)
+  return value
+}
+
+/**
+ * Asserts x and y are equal, where equality is taken to mean
+ * structural equality
+ *
+ * @param {Object} x
+ * @param {Object} y
+ * @param {string} failMsg
+ * @param {?string} succMsgOpt
+ */
+let assertEqual = function(x, y, failMsg, succMsgOpt) {
+  let failureMsg = 'Assertion failed: ' + x + ' not equal to ' + y + '\n'
+      + failMsg
+  printSuccessOrRaiseError(_.isEqual(x,y), failureMsg, succMsgOpt)
+}
+
+/**
+ * Asserts lowerBound <= value <= upperBound
+ *
+ * @param {number} value
+ * @param {number} lowerBound
+ * @param {number} upperBound
+ * @param {string} failMsg
+ * @param {?string} succMsg
+ * @returns {number} passed value
+ */
+let assertBetween = function(value, lowerBound, upperBound, failMsg, succMsg) {
+  if (typeof value !== 'number' ||
+      typeof lowerBound !== 'number' ||
+      typeof upperBound !== 'number') {
+    error('assertBetween: first three arguments must be numbers; found: ' +
+        value + ', ' + lowerBound + ', ' + upperBound)
+  }
+  return assert(lowerBound <= value && value <= upperBound, failMsg, succMsg)
 }
 
 /** asserts x, fails and prints *failMsg* if x doesn't hold.
  * otherwise, if succMsg (optional) is provided, prints it */
-let assert = function(x, failMsg, succMsg) {
-    if (!x) error(failMsg)
-    if (succMsg !== undefined) display(succMsg)
+/**
+ * The most general assertion mechanism.
+ *
+ * @param {boolean} value
+ * @param {string} failMsg
+ * @param {?string} succMsg
+ */
+let assert = function(value, failMsg, succMsg) {
+  if (typeof value !== 'boolean') {
+    error('assert: expected a boolean argument, found: ' + value)
+  }
+  if (typeof failMsg !== 'string') {
+    error('assert: failMsg must be a string, found: ' + failMsg)
+  }
+  if (!value) {
+    error('Assertion failed\n' + failMsg)
+  }
+  if (succMsg) {
+    display(succMsg)
+  }
 }
 
-
-/** PRIVATE */
-/** Functions below are internal to this file,
- *  not to be called from the outside
+/**
+ * @private
  */
 
-let printSuccessOrRaiseError = function(cond, failMsg, succMsg) {
-    if (!cond) error("\n" + stringInABox(failMsg))
-    if (succMsg !== undefined) display(succMsg)
+/**
+ * Prints a success message (if provided) or throws an error (which
+ * terminates the execution) depending on the truth value of cond
+ * @param {boolean} cond condition
+ * @param {string} failMsg failure message
+ * @param {?string} succMsgOpt optional success message
+ */
+let printSuccessOrRaiseError = function(
+    cond, failMsg, succMsgOpt) {
+  if (typeof cond !== 'boolean') {
+    error('internal error: printSuccessOrRaiseError called with nonboolean ' +
+        'condition: cond = ' + cond)
+  }
+  if (!cond) {
+    error('\n' + emphasiseString(failMsg))
+  }
+  if (succMsgOpt) {
+    display(succMsgOpt)
+  }
 }

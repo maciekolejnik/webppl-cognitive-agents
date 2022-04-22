@@ -14,7 +14,7 @@ let paramsOk = {
 // let gameInvalid = makeTippingCSMG(paramsInvalid)
 // display(stringInABox("end of failing"))
 
-let gameOk = assertDefined(makeTippingCSMG(paramsOk),
+let gameOk = assertDefinedNotNull(makeTippingCSMG(paramsOk),
     "FAIL: game not created",
     "OK: game created...")
 
@@ -42,31 +42,31 @@ let gameOk = assertDefined(makeTippingCSMG(paramsOk),
         stateToString
    }
  */
-let API = assertDefined(gameOk.API,
+let API = assertDefinedNotNull(gameOk.API,
     "FAIL: gameOk: gameAPI undefined",
     "OK: API defined...")
 
-let getPreviousState = assertDefined(API.getPreviousState,
+let getPreviousState = assertDefinedNotNull(API.getPreviousState,
     "FAIL: API.getPreviousState undefined",
     "OK: API.getPreviousState defined...")
 
-let getLastAction = assertDefined(API.getLastAction,
+let getLastAction = assertDefinedNotNull(API.getLastAction,
     "FAIL: API.getLastAction undefined",
     "OK: API.getLastAction defined...")
 
-let isInitial = assertDefined(API.isInitial,
+let isInitial = assertDefinedNotNull(API.isInitial,
     "FAIL: API.isInitial undefined",
     "OK: API.isInitial defined...")
 
-let turn = assertDefined(API.turn,
+let turn = assertDefinedNotNull(API.turn,
     "FAIL: API.turn undefined",
     "OK: API.turn defined...")
 
-let other = assertDefined(API.other,
+let other = assertDefinedNotNull(API.other,
     "FAIL: API.other undefined",
     "OK: API.other defined...")
 
-let stateToString = assertDefined(API.stateToString,
+let stateToString = assertDefinedNotNull(API.stateToString,
     "FAIL: API.stateToString undefined",
     "OK: API.stateToString defined...")
 
@@ -74,7 +74,7 @@ let stateToString = assertDefined(API.stateToString,
 
 /** make sure actions and transitions are good by starting
  from initial state */
-let initialState = assertDefined(gameOk.initialState,
+let initialState = assertDefinedNotNull(gameOk.initialState,
     "FAIL: gameOk.API: initialState undefined",
     "OK: initialState defined...")
 
@@ -90,11 +90,11 @@ assert(initialState.pastService.length == 0  && initialState.pastTips.length == 
     "FAIL: initialState doesn't have the required structure",
     "OK: initialState correct...")
 
-let actions = assertDefined(gameOk.actions,
+let actions = assertDefinedNotNull(gameOk.actions,
     "FAIL: actions mapping undefined",
     "OK: actions defined...")
 
-let transitionFn = assertDefined(gameOk.transitionFn,
+let transitionFn = assertDefinedNotNull(gameOk.transitionFn,
     "FAIL: transition function undefined",
     "OK: transition function defined")
 

@@ -1,92 +1,137 @@
-let INFERENCE_MODE = globalStore.inferenceMode !== undefined
-
-let spaces = function(n) {
-  return ' '.repeat(n)
-}
-
-/** LOGGING
+const INFERENCE_MODE = globalStore.inferenceMode !== undefined
+globalStore.indent = 0
+/**
+ * @fileoverview This file implements a basic logging mechanism designed to
+ * aid comprehension of and help debug webppl programs. Note that the logs
+ * are written to the console rather than to a file.
  *
- * This implements a very basic logging mechanism, with different
- * levels reflecting different priorities of log messages.
+ * The granularity of logging is controlled by exposing different logging
+ * methods, each associated to a single logging level, which ranges
+ * from 0 to 5. A message will be printed to the console if the level
+ * associated to the logging method used to log the message is no greater
+ * than the globally set logging level (see below for how it is set).
+ * Hence, the higher the logging level, the more logs will be printed.
  *
- * The logger, obtained by calling *getLogger*, provides
- * functions for outputting logs at different levels, as
- * described below. Users should simply call logging methods
- * such as *info*, *debug* etc. The general idea of different
- * methods is as follows:
- * - @critical is reserved for logs of crucial importance, usually
- *  used when something goes very wrong
- * - @explain should be used to provide explanations of system execution
- *  but it should be kept rather short and infrequent
- * - @debug should be used to log information that might help with
- *  debugging
- * - @info is mostly meant for standard logging on entry/exit to/from
- *  functions
+ * Each level prints everything that lower levels would print as well as
+ * the messages passed to the logging method associated to that level. The
+ * levels are as follows:
+ * 0: no logging
+ * 1 (critical): only critical logs are printed; these are meant to be used
+ * for logging errors that crash the program
+ * 2 (explain): additionally prints explanatory logs; these are meant to be
+ * used for logging important aspects of tool's operation, but they should
+ * not be overwhelming
+ * 3 (debug): additionally prints debugging logs; these are meant to be used
+ * for logging interesting aspects of functions that might help debug the code
+ * 4 (info): additionally prints info logs; these are meant to be used for
+ * logging entry and exit of functions
+ * 5 (aux): additionally prints auxiliary logs, these are meant to be used
+ * for everything else, in particular inside printing functions
  *
- * levels 0-5
- * 0 is no logging
- * 1 only log critical (critical)
- * 2 logs important things (critical, explain)
- * 3 is log important + debugging (critical, explain, debug)
- * 4 is  (critical, explain, debug, info)
- * 5 is log everything (aux is meant to be used for logging in
- *   printing functions)
+ *
  */
-let getLogger = function(level) {
-  let displayIfLevelHighAndFlag = function(message, flagOpt, treshold) {
-    let flag = flagOpt === undefined || flagOpt
-    let indent = globalStore.indent || 0
-    if (indent < 0) {
-      error("displayIfLevelHighAndFlag(): indent expected >= 0, " +
-      "but found: " + indent)
-    }
-    let loggingLevel = globalStore.loggingLevel || level
-    if (loggingLevel >= treshold && flag) {
-      display(spaces(indent) + message)
-    }
-  }
+// let getLogger = function(level) {
+//   let displayIfLevelHighAndFlag = function(message, flagOpt, treshold) {
+//     let flag = flagOpt === undefined || flagOpt
+//     let indent = globalStore.indent || 0
+//     if (indent < 0) {
+//       error("displayIfLevelHighAndFlag(): indent expected >= 0, " +
+//       "but found: " + indent)
+//     }
+//     let loggingLevel = globalStore.loggingLevel || level
+//     if (loggingLevel >= treshold && flag) {
+//       display(spaces(indent) + message)
+//     }
+//   }
+//
+//   let aux = function(message, flagOpt) {
+//     displayIfLevelHighAndFlag(message, flagOpt, 5)
+//   }
+//
+//   let info = function(message, flagOpt) {
+//     displayIfLevelHighAndFlag(message, flagOpt, 4)
+//   }
+//
+//   let debug = function(message, flagOpt) {
+//     displayIfLevelHighAndFlag(message, flagOpt, 3)
+//   }
+//
+//   let explain = function(message, flagOpt) {
+//     displayIfLevelHighAndFlag(message, flagOpt, 2)
+//   }
+//
+//   let critical = function(message, flagOpt) {
+//     displayIfLevelHighAndFlag(message, flagOpt, 1)
+//   }
+//
+//   return {aux, info, debug, explain, critical}
+// }
 
-  let aux = function(message, flagOpt) {
-    displayIfLevelHighAndFlag(message, flagOpt, 5)
-  }
+const DEFAULT_LOGGING_LEVEL = 2
 
-  let info = function(message, flagOpt) {
-    displayIfLevelHighAndFlag(message, flagOpt, 4)
-  }
 
-  let debug = function(message, flagOpt) {
-    displayIfLevelHighAndFlag(message, flagOpt, 3)
-  }
+const INITIAL_LOGGING_LEVEL = argv.log || globalStore.loggingLevel || DEFAULT_LOGGING_LEVEL
 
-  let explain = function(message, flagOpt) {
-    displayIfLevelHighAndFlag(message, flagOpt, 2)
+/**
+ * Prints a log provided two conditions are met:
+ * (i) the logging level is high enough (bigger than threshold)
+ * (ii) the flag is not false (i.e., either absent or true)
+ * @param {string} message to be logged
+ * @param {?boolean} flagOpt allows conditional logging
+ * @param {number} treshold represents the severity of this logging method
+ */
+let logConditionally = function(message, flagOpt, treshold) {
+  let flag = flagOpt === undefined || flagOpt
+  let indent = globalStore.indent || 0
+  if (indent < 0) {
+    error('logConditionally(): indent expected >= 0, but found: ' + indent)
   }
-
-  let critical = function(message, flagOpt) {
-    displayIfLevelHighAndFlag(message, flagOpt, 1)
+  // every time, we check if logging level is specified globally
+  let loggingLevel = globalStore.loggingLevel || INITIAL_LOGGING_LEVEL
+  if (loggingLevel >= treshold && flag) {
+    // repeat gets indent number of spaces
+    display(' '.repeat(indent) + message)
   }
-
-  return {aux, info, debug, explain, critical}
 }
 
-let LOGGING = {
-  minLevel: 1,
-  maxLevel: 5,
-  default: 2
+let aux = function(message, flagOpt) {
+  logConditionally(message, flagOpt, 5)
 }
 
-
-let getLoggingLevel = function() {
-  let level = globalStore.loggingLevel || LOGGING.default
-  let result = Math.max(LOGGING.minLevel, Math.min(LOGGING.maxLevel, level))
-  return result
+let info = function(message, flagOpt) {
+  logConditionally(message, flagOpt, 4)
 }
 
-let logger = getLogger(getLoggingLevel())
+let debug = function(message, flagOpt) {
+  logConditionally(message, flagOpt, 3)
+}
+
+let explain = function(message, flagOpt) {
+  logConditionally(message, flagOpt, 2)
+}
+
+let critical = function(message, flagOpt) {
+  logConditionally(message, flagOpt, 1)
+}
+
+// let LOGGING = {
+//   minLevel: 1,
+//   maxLevel: 5,
+//   default: 2
+// }
+
+
+// let getLoggingLevel = function() {
+//   let level = globalStore.loggingLevel || LOGGING.default
+//   let result = Math.max(LOGGING.minLevel, Math.min(LOGGING.maxLevel, level))
+//   return result
+// }
+
+// let logger = getLogger(getLoggingLevel())
 
 /** logging API below */
-let debug = logger.debug
-let aux = logger.aux
-let info = logger.info
-let explain = logger.explain
-let critical = logger.critical
+// let debug = logger.debug
+// let aux = logger.aux
+// let info = logger.info
+// let explain = logger.explain
+// let critical = logger.critical

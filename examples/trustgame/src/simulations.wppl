@@ -667,7 +667,7 @@ let conmanCognitiveExperiment = function() {
         return "Scenario " + i + ":\ntrace:" + toString(scenarioSummary.actions)
          + "\nfinal monies: " + toString(scenarioSummary.money)
       }, scenariosSummaries)
-    critical(stringInABox("Results of cognitive conman experiment:"))
+    critical(emphasiseString("Results of cognitive conman experiment:"))
     critical(scenarioSummariesStrings.join("\n"))
     let avgMoney = function(i, scenariosSummaries) {
       /** filter scenarios of all zero transfers */
@@ -729,11 +729,11 @@ let mturkExperiment = function() {
 
   let generateBotInitialState = function(botID, alphaEst, discountEst, lookAheadEst, initialBelief, trustEst) {
     let isInvestor = botID === 0
-    let belief = isInvestor ? [undefined, initialBelief] : [initialBelief, undefined]
-    let mentalEstimations = isInvestor ? [undefined, [trustEst]] : [[trustEst], undefined]
-    let alpha = isInvestor ? [undefined, alphaEst] : [alphaEst, undefined]
-    let lookAhead = isInvestor ? [undefined, lookAheadEst] : [lookAheadEst, undefined]
-    let discountFactor = isInvestor ? [undefined, discountEst] : [discountEst, undefined]
+    let belief = isInvestor ? [null, initialBelief] : [initialBelief, null]
+    let mentalEstimations = isInvestor ? [null, [trustEst]] : [[trustEst], null]
+    let alpha = isInvestor ? [null, alphaEst] : [alphaEst, null]
+    let lookAhead = isInvestor ? [null, lookAheadEst] : [lookAheadEst, null]
+    let discountFactor = isInvestor ? [null, discountEst] : [discountEst, null]
     return {
       belief,
       mentalEstimations,

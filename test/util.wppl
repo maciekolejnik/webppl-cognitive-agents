@@ -1,0 +1,24 @@
+let runTests = function(argv, tests) {
+  const noOfTests = test.length
+  const testNo = argv.test
+  if (testNo >= 0) {
+    assertHasType(testNo, INT_TYPE,
+        'tests/util.wppl: --test argument must be an integer, ' +
+        'found: ' + testNo + ' of type ' + (typeof testNo))
+    assertBetween(testNo, 0, noOfTests - 1,
+        'tests/util.wppl: --test argument must identify an existing ' +
+        'test, i.e., be between 0 and ' + (noOfTests - 1) + ', but found: ' + testNo)
+    let run = tests[testNo].run
+    run()
+  } else {
+    runAll(tests)
+  }
+}
+
+let runAll = function(tests) {
+  if (tests.length > 0) {
+    let run = tests[0].run
+    run()
+    runAll(tests.slice(1))
+  }
+}

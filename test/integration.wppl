@@ -1,15 +1,20 @@
-/** Some integration test are defined in this file.
+/**
+ * @fileoverview Some integration tests are defined in this file.
  * They're specified in an array below; each element is a complete
  * specification of a cognitive game. They are roughly ordered in
  * increasing order wrt to complexity.
  *
  * From the commandline, run
- $ webppl integration.wppl --require ../webppl-cognitive-agents
+ $ webppl test/integration.wppl --require ../webppl-cognitive-agents
  */
 let tests = function() {
 
   let testsArray = [
-    /** FIRST TEST (one player trivial) */
+    /**
+     * FIRST TEST
+     * a trivial one-player game with a single action, the same at every
+     * state and trivial rewards (only physical, unit at each state)
+     */
     function() {
       let makeGame = function () {
         let actions = getConstantFn(["bottom"])
@@ -26,6 +31,9 @@ let tests = function() {
             assert(!isInitial(state));
             return 'bottom'
           }
+          let endsRound = function(state, action) {
+            return true
+          }
           let isInitial = function (state) {
             return state == 0
           }
@@ -38,6 +46,7 @@ let tests = function() {
           let API = {
             getPreviousState,
             getLastAction,
+            endsRound,
             isInitial,
             turn,
             other,
@@ -80,7 +89,10 @@ let tests = function() {
           }
         }
 
-        let rewardUtilityFunctions = [identity]
+        let rewardUtilityFunctions = {
+          physical: [identity],
+          mental: []
+        }
 
         return {
           actions,
@@ -106,12 +118,12 @@ let tests = function() {
             }
           },
           initialState: {
-            belief: [undefined],
-            mentalEstimations: [undefined],
+            belief: [null],
+            mentalEstimations: [null],
             metaParamsEstimations: {
-              alpha: [undefined],
-              lookAhead: [undefined],
-              discountFactor: [undefined]
+              alpha: [null],
+              lookAhead: [null],
+              discountFactor: [null]
             }
           }
         }
@@ -143,17 +155,25 @@ let tests = function() {
       let description = 'Trivial test with single state, single agent ' +
         'and single action, but repeated.'
 
-      let validateOutput = function(trajectories) {
-        assertIsArray(trajectories, OBJECT_TYPE, 2,
-          "FAIL: trajectories array not as expected")
-        let trajectory = trajectories[0]
-        map(function(trajectory) {
-          assertIsArray(trajectory, OBJECT_TYPE, 10,
-            "FAIL: trajectory: " + trajectory + "not as expected")
+      let validateOutput = function(trajectoriess) {
+        info('validateOutput(): trajectoriess = ' + toString(trajectoriess))
+        assertIsArray(trajectoriess, ARRAY_TYPE, 2,
+          "FAIL: trajectoriess array should have length 2 (equal to " +
+            "the number of scenarios) and have arrays as elements, but found: "
+            + toString(trajectoriess))
+        map(function(trajectories) {
+          assertIsArray(trajectories, ARRAY_TYPE, 1,
+              'FAIL: there should be a single trajectory for each ' +
+              'scenario (as number of reps is set to 1), so trajectories ' +
+              'array should have a single element, but found ' +
+              toString(trajectories))
+          const trajectory = trajectories[0]
+          assertIsArray(trajectory, ARRAY_TYPE, 11,
+            "FAIL: trajectory: " + toString(trajectories) + " not as expected")
           mapIndexed(function (i, elem) {
             assertEqual(elem, [i, 'bottom'])
-          }, trajectory)
-        }, trajectories)
+          }, trajectory.slice(0, trajectory.length - 1))
+        }, trajectoriess)
       }
 
       return {
@@ -165,7 +185,12 @@ let tests = function() {
       }
     }(),
 
-    /** SECOND TEST (one player simple) */
+    /**
+     * SECOND TEST
+     * a one-player game where at each state two actions are available:
+     * (i) good and (ii) bad, with the former resulting in positive reward,
+     * while the latter negative reward (physical only). Expect
+     */
     function() {
       let makeGame = function () {
         let actions = function (state) { return ['bad', 'good'] }
@@ -183,6 +208,9 @@ let tests = function() {
             assert(!isInitial(state));
             return state[0]
           }
+          let endsRound = function (state, action) {
+            return true
+          }
           let isInitial = function (state) {
             return state.length == 0
           }
@@ -195,6 +223,7 @@ let tests = function() {
           let API = {
             getPreviousState,
             getLastAction,
+            endsRound,
             isInitial,
             turn,
             other,
@@ -241,7 +270,10 @@ let tests = function() {
           }
         }
 
-        let rewardUtilityFunctions = [identity]
+        let rewardUtilityFunctions = {
+          physical: [identity],
+          mental: []
+        }
 
         return {
           actions,
@@ -267,12 +299,12 @@ let tests = function() {
             }
           },
           initialState: {
-            belief: [undefined],
-            mentalEstimations: [undefined],
+            belief: [null],
+            mentalEstimations: [null],
             metaParamsEstimations: {
-              alpha: [undefined],
-              lookAhead: [undefined],
-              discountFactor: [undefined]
+              alpha: [null],
+              lookAhead: [null],
+              discountFactor: [null]
             }
           }
         }
@@ -305,20 +337,22 @@ let tests = function() {
         ' agent has two available actions: *good* and *bad*. We expect he' +
         ' chooses *good* every time as he is (almost) perfectly rational'
 
-      let validateOutput = function(trajectories) {
-        assertIsArray(trajectories, OBJECT_TYPE, 2,
+      let validateOutput = function(trajectoriess) {
+        assertIsArray(trajectoriess, OBJECT_TYPE, 2,
           "FAIL: trajectories array not as expected")
-        map(function (trajectory) {
-          assertIsArray(trajectory, OBJECT_TYPE, 5,
-            "FAIL: trajectory: " + trajectory + "not as expected")
+        map(function (trajectories) {
+          const trajectory = trajectories[0]
+          assertIsArray(trajectory, ARRAY_TYPE, 6,
+            "FAIL: trajectory: " + toString(trajectory) +
+              " expected to consist of five elements (arrays), but is not")
           mapIndexed(function (i, elem) {
             let state = repeat(i, function () {
               return 'good'
             })
             assertEqual(elem, [state, 'good'],
               'computed action not as expected')
-          }, trajectory)
-        }, trajectories)
+          }, trajectories.slice(0, trajectories.length - 1))
+        }, trajectoriess)
       }
 
       return {
@@ -330,7 +364,12 @@ let tests = function() {
       }
     }(),
 
-    /** THIRD TEST (one player simple with mental) */
+    /**
+     * THIRD TEST
+     * one-player game but this time with mental rewards. In each state,
+     * the agent can be __nice__ or __mean__. Being mean brings positive
+     * physical rewards (+1 vs -1) but leads to low mental state (-1 vs +1).
+     */
     function() {
       let makeGame = function () {
         let actions = function (state) { return ['nice', 'mean'] }
@@ -348,6 +387,9 @@ let tests = function() {
             assert(!isInitial(state));
             return state[0]
           }
+          let endsRound = function(state, action) {
+            return true
+          }
           let isInitial = function (state) {
             return state.length == 0
           }
@@ -357,6 +399,7 @@ let tests = function() {
           let API = {
             getPreviousState,
             getLastAction,
+            endsRound,
             isInitial,
             turn,
             stateToString
@@ -381,21 +424,20 @@ let tests = function() {
           }
         }()
 
-        /** No mental rewards for simplicity */
         let mentalStateDynamics = function () {
 
-          let computeMentalState = function(state, belief) {
+          let computeMentalState = function(agentID, belief, state) {
             return {
               'mean': -1,
               'nice': 1
-            }[state[0]]
+            }[state[0]] || 0
           }
 
           return {
-            estimationHeuristicArr: [undefined], /** not needed */
+            estimationHeuristicArr: [identity], /** not needed */
             mentalStateArr: [computeMentalState],
             mentalUtilities: [
-/** agent 0*/ [[0]]
+              /** agent 0*/ [[0]]
             ]
           }
         }()
@@ -411,7 +453,10 @@ let tests = function() {
           }
         }
 
-        let rewardUtilityFunctions = [identity, identity]
+        let rewardUtilityFunctions = {
+          physical: [identity],
+          mental: [identity]
+        }
 
         return {
           actions,
@@ -442,12 +487,12 @@ let tests = function() {
                   }
                 },
                 initialState: {
-                  belief: [undefined],
-                  mentalEstimations: [undefined],
+                  belief: [null],
+                  mentalEstimations: [null],
                   metaParamsEstimations: {
-                    alpha: [undefined],
-                    lookAhead: [undefined],
-                    discountFactor: [undefined]
+                    alpha: [null],
+                    lookAhead: [null],
+                    discountFactor: [null]
                   }
                 }
               }
@@ -472,12 +517,12 @@ let tests = function() {
                   }
                 },
                 initialState: {
-                  belief: [undefined],
-                  mentalEstimations: [undefined],
+                  belief: [null],
+                  mentalEstimations: [null],
                   metaParamsEstimations: {
-                    alpha: [undefined],
-                    lookAhead: [undefined],
-                    discountFactor: [undefined]
+                    alpha: [null],
+                    lookAhead: [null],
+                    discountFactor: [null]
                   }
                 }
               }
@@ -501,21 +546,22 @@ let tests = function() {
         ' The second action is the opposite. We consider different' +
         ' scenarios modelling different types of agents.'
 
-      let validateOutput = function(trajectories) {
-        assertIsArray(trajectories, OBJECT_TYPE, 2,
+      let validateOutput = function(trajectoriess) {
+        assertIsArray(trajectoriess, OBJECT_TYPE, 2,
           "FAIL: trajectories array not as expected: " +
-          arrayToString(trajectories))
-        let validateTrajectory = function(i, trajectory) {
-          assertIsArray(trajectory, OBJECT_TYPE, 5,
-            "FAIL: trajectory: " + trajectory + "not as expected")
+          arrayToString(trajectoriess))
+        let validateTrajectory = function(i, trajectories) {
+          const trajectory = trajectories[0]
+          assertIsArray(trajectory, OBJECT_TYPE, 6,
+            "FAIL: trajectory: " + toString(trajectory) + " not as expected")
           let arr = ['nice', 'mean']
           mapIndexed(function(j, elem) {
             let state = repeat(j, function() { return arr[i]})
             assertEqual(elem, [state, arr[i]],
               'computed action not as expected')
-          }, trajectory)
+          }, trajectory.slice(0, trajectory.length - 1))
         }
-        mapIndexed(validateTrajectory, trajectories)
+        mapIndexed(validateTrajectory, trajectoriess)
       }
 
       return {
@@ -527,20 +573,21 @@ let tests = function() {
       }
     }(),
 
-    /** FOURTH TEST (tic tac toe - two players, no mental) */
+    /**
+     * FOURTH TEST
+     * Model of tic tac toe - a two-player scenario, but no mental rewards for
+     * now
+     */
     function() {
 
       let makeGame = function () {
-        /** state here is represented more efficiently (hopefully)
-         * taking advantage of the fact that history doesn't really matter,
-         * what matters is current state */
 
         /** state is called 'board' below */
 
         let isOver = function(board) {
           return threeInARow(board, 'X') ||
             threeInARow(board, 'O') ||
-            all(isDefined, board)
+            all(isDefinedNotNull, board)
         }
 
         let indexBoard = function(board) {
@@ -603,7 +650,7 @@ let tests = function() {
           /** retrieve empty positions */
           let indexedSquares = indexBoard(board)
           let emptyIndexedSquares = filter(function(indexedSquare) {
-            return indexedSquare[0] === undefined
+            return isNull(indexedSquare[0])
           }, indexedSquares)
           let moves = map(function(emptyIndexedSquare) {
             return [mark, emptyIndexedSquare[1]]
@@ -615,7 +662,7 @@ let tests = function() {
           if (action === "nil") return Delta({v: board})
           let mark = action[0]
           let pos = action[1]
-          assert(isUndefined(board[pos]),
+          assert(isNull(board[pos]),
             "move " + arrayToString(action) + " in state " +
             stateToString(board) + " invalid!")
           assert(marks[turn(board)] === mark,
@@ -660,11 +707,11 @@ let tests = function() {
               " be called as no mental and no belief update in this game")
           }
           let isInitial = function (state) {
-            return all(isUndefined, state)
+            return all(isNull, state)
           }
 
           let turn = function(state) {
-            let takenSquares = filter(isDefined, state)
+            let takenSquares = filter(isDefinedNotNull, state)
             return takenSquares.length % 2
           }
 
@@ -706,7 +753,7 @@ let tests = function() {
           }
         }()
 
-        let initialState = repeat(9, getUndefined)
+        let initialState = repeat(9, getNull)
 
         let params = {
           numberOfAgents: 2,
@@ -716,33 +763,10 @@ let tests = function() {
           }
         }
 
-        let rewardUtilityFunctions = [identity]
-
-        /** Some small tests for the more complex functions */
-        let testGameStructure = function() {
-          assert(!threeInARow(initialState, 'X'),
-            "FAIL: threeInARow for X holds in initialState")
-          assert(!threeInARow(initialState, 'O'),
-            "FAIL: threeInARow for O holds in initialState")
-          let state1 = sample(transitionFn(initialState, ['X',0]))
-          assert(!threeInARow(state1, 'X'),
-            "FAIL: threeInARow for X holds in state1")
-          assert(!threeInARow(state1, 'O'),
-            "FAIL: threeInARow for O holds in state1")
-          let state2 = sample(transitionFn(state1, ['O',4]))
-          let state3 = sample(transitionFn(state2, ['X',2]))
-          assert(!threeInARow(state3, 'X'),
-            "FAIL: threeInARow for X holds in state3")
-          assert(!threeInARow(state3, 'O'),
-            "FAIL: threeInARow for O holds in state3")
-          let state4 = sample(transitionFn(state3, ['O',3]))
-          let state5 = sample(transitionFn(state4, ['X',1]))
-          assert(isOver(state5), "FAIL: game should be over in state5")
-          assert(!threeInARow(state5, 'O'),
-            "FAIL: threeInARow for O holds in state5")
-          assert(threeInARow(state5, 'X'),
-            "FAIL: threeInARow for X doesnt hold in state5, but should")
-        }()
+        let rewardUtilityFunctions = {
+          physical: [identity],
+          mental: []
+        }
 
         return {
           actions,
@@ -764,21 +788,15 @@ let tests = function() {
             metaParams: {
               alpha: 1000,
               discountFactor: 0.9,
-              lookAhead: 9
+              lookAhead: 5
           }
         }
-        let alpha = [undefined, Delta({v: 1000})]
-        let discountFactor = [undefined, Delta({v: 0.9})]
-        let lookAhead = [undefined, Delta({v: 3})]
-        // let metaParamsEstimations = {
-        //   alpha,
-        //   lookAhead,
-        //   discountFactor
-        // }
-        let mentalEstimations = [undefined, undefined]
-        /** belief over oneself is a delta */
+        let alpha = [null, Delta({v: 1000})]
+        let discountFactor = [null, Delta({v: 0.9})]
+        let lookAhead = [null, Delta({v: 2})]
+        let mentalEstimations = [null, null]
         let belief = [
-          Delta({v:["belief over oneself"]}),
+          null,
           Delta({v:[1]})
         ]
         let crossAgent = {
@@ -803,27 +821,48 @@ let tests = function() {
             }
           }
         }
-        // let startingState = [["X",8],["O",4],["X",0]]
-        // let startingState =
-        //   ['X', 'O', undefined,
-        //     undefined, undefined, undefined,
-        //     undefined, undefined, undefined
-        //   ]
-        let startingState =
-          [ undefined, undefined, undefined,
-            undefined, undefined, undefined,
-            undefined, undefined, undefined
-          ]
         let result = [
           {
-            name: 'nice guy who cares about others',
+            name: 'can cross player find a winning move?',
             agents:
               [crossAgent, noughtAgent],
             options: {
               horizon: 1,
               beliefRepresentation: 'discrete'
             },
-            startingState
+            startingState: [
+              'X', null, 'X',
+              'O', 'O', null,
+              null, null, null
+            ]
+          },
+          {
+            name: 'can nought player find a winning move?',
+            agents:
+                [crossAgent, noughtAgent],
+            options: {
+              horizon: 1,
+              beliefRepresentation: 'discrete'
+            },
+            startingState: [
+                'X', 'O', 'X',
+                'X', 'O', null,
+                null, null, null
+            ]
+          },
+          {
+            name: 'can cross player find a winning tactic?',
+            agents:
+                [crossAgent, noughtAgent],
+            options: {
+              horizon: 5,
+              beliefRepresentation: 'discrete'
+            },
+            startingState: [
+              'X', 'O', null,
+              null, null, null,
+              null, null, null
+            ]
           }
         ]
         return result
@@ -835,22 +874,44 @@ let tests = function() {
         ', it doesnt feature mental rewards so should be a little' +
         ' easier to deal with'
 
-      let validateOutput = function(trajectories) {
-        assertIsArray(trajectories, OBJECT_TYPE, 1,
-          "FAIL: trajectories array not as expected: " +
-          arrayToString(trajectories))
-        display(trajectories[0])
-        // let validateTrajectory = function(i, trajectory) {
-        //   assertIsArray(trajectory, OBJECT_TYPE, 5,
-        //     "FAIL: trajectory: " + trajectory + "not as expected")
-        //   let arr = ['nice', 'mean']
-        //   mapIndexed(function(j, elem) {
-        //     let state = repeat(j, function() { return arr[i]})
-        //     assertEqual(elem, [state, arr[i]],
-        //       'computed action not as expected')
-        //   }, trajectory)
-        // }
-        // mapIndexed(validateTrajectory, trajectories)
+      let validateOutput = function(trajectoriess) {
+        assertIsArray(trajectoriess, ARRAY_TYPE, scenarios.length,
+          'FAIL: trajectoriess array should have ' + scenarios.length +
+            ' elements (equal to number of scenarios), each an array, ' +
+            'but found: ' + toString(trajectoriess))
+        /** validate first scenario */
+        const crossWinTrajectory = trajectoriess[0][0]
+        const action = crossWinTrajectory[0][1][1]
+        assertEqual(action, 1, 'FAIL: cross player expected to ' +
+            'select action 2 (top right square) to win the game in first ' +
+            'scenario, but he selected ' + action)
+        const rewards = crossWinTrajectory[1][1]
+        assertEqual(rewards[0], 1, 'FAIL: cross ' +
+            'player expected to be the winner in first scenario, but instead ' +
+            'his reward is ' + rewards[0])
+
+        /** validate second scenario */
+        const noughtWinTrajectory = trajectoriess[1][0]
+        const action2 = noughtWinTrajectory[0][1][1]
+        assertEqual(action2, 7, 'FAIL: nought player expected to ' +
+            'select action 7 (bottom square) to win the game in second ' +
+            'scenario, but he selected ' + action)
+        const rewards2 = noughtWinTrajectory[1][1]
+        assertEqual(rewards2[1], 1, 'FAIL: nought ' +
+            'player expected to be the winner in second scenario, but instead ' +
+            'his reward is ' + rewards2[1])
+
+        /** validate third scenario */
+        const crossWinningTacticTrajectory = trajectoriess[2][0]
+        const rewards3 = crossWinningTacticTrajectory[5][1]
+        assertEqual(rewards3[0], 1, 'FAIL: cross ' +
+            'player expected to find the winning tactic in the second scenario,' +
+            ' but instead his reward is ' + rewards3[0])
+        // check also that nought has defended until the end
+        assert(crossWinningTacticTrajectory[4][1][1] !== 'nil',
+            'FAIL: nought player was expected to defend against threats' +
+            ' and force cross player to win in 5 moves, no less; but cross won ' +
+            'is less than five moves as his last action was nil')
       }
 
       return {
@@ -913,23 +974,27 @@ let tests = function() {
           return Delta({v: result})
         }
 
-        let API = function () {
-          let getPreviousState = function (state) {
-            if (isInitial(state)) return state
-            let prevTurn = (turn(state) + 1) % 2
-            let prevInvestments = (prevTurn === 0) ? state.investments.slice(1) : state.investments
-            let prevReturns = (prevTurn === 1) ? state.returns.slice(1) : state.returns
-            return {
-              turn: prevTurn,
-              investments: prevInvestments,
-              returns: prevReturns
-            }
+        let getPreviousState = function (state) {
+          if (isInitial(state)) return state
+          let prevTurn = (turn(state) + 1) % 2
+          let prevInvestments = (prevTurn === 0) ? state.investments.slice(1) : state.investments
+          let prevReturns = (prevTurn === 1) ? state.returns.slice(1) : state.returns
+          return {
+            turn: prevTurn,
+            investments: prevInvestments,
+            returns: prevReturns
           }
-          let getLastAction = function (state) {
-            assert(!isInitial(state), "Calling previousAction on initial state")
-            if (state.investments.length > state.returns.length)
-              return state.investments[0]
-            return state.returns[0]
+        }
+        let getLastAction = function (state) {
+          assert(!isInitial(state), "Calling previousAction on initial state")
+          if (state.investments.length > state.returns.length)
+            return state.investments[0]
+          return state.returns[0]
+        }
+
+        let API = function () {
+          let endsRound = function(state, action) {
+            return state.investments.length > state.returns.length
           }
           let isInitial = function (state) {
             return arrayIsEmpty(state.investments) && arrayIsEmpty(state.returns)
@@ -945,6 +1010,7 @@ let tests = function() {
           let API = {
             getPreviousState,
             getLastAction,
+            endsRound,
             isInitial,
             turn,
             stateToString
@@ -972,10 +1038,12 @@ let tests = function() {
 
         let mentalStateDynamics = function () {
 
-          let updateTrustEstimation = function(trust, agentID, state, action) {
-            let maxPossibleTransfer = maxPossibleTransfer(state)
+          let updateTrustEstimation = function(trust, estimatingAgentID, estimatedAgentID, state) {
+            let lastState = getPreviousState(state)
+            let action = getLastAction(state)
+            let maxPossibleTransfer = maxPossibleTransfer(lastState)
             // trust is only updated if other agent took action
-            if (maxPossibleTransfer == 0 || state.turn == agentID) return trust
+            if (maxPossibleTransfer == 0 || state.turn == estimatingAgentID) return trust
             let transferRatio = action / maxPossibleTransfer
             if (transferRatio > trust) {
               let trustIncreaseRatio = (transferRatio - trust) / (1 - trust)
@@ -996,9 +1064,9 @@ let tests = function() {
             }
           }
 
-          let computeTrust = function(state, belief) {
-            let towardAgentID = belief.value[0] === undefined ? 1 : 0
-            let individualBelief = retrieveBeliefOver(towardAgentID, belief)
+          let computeTrust = function(agentID, belief, state) {
+            let opponentID = otherAgentID(agentID)
+            let individualBelief = retrieveBeliefOver(opponentID, belief)
             return goalCoeffExpectation(individualBelief, 1)
           }
 
@@ -1036,7 +1104,10 @@ let tests = function() {
             return 15 * x
           }
 
-          return [moneyUtility, trustUtility]
+          return {
+            physical: [moneyUtility],
+            mental: [trustUtility]
+          }
         }()
 
         return {
@@ -1064,15 +1135,15 @@ let tests = function() {
           metaParams
         }
         let alpha = [
-          undefined,
+          null,
           Categorical({vs: [100]})
         ]
         let lookAhead = [
-          undefined,
+          null,
           Categorical({vs: [2]})
         ]
         let discountFactor = [
-          undefined,
+          null,
           Categorical({vs: [0.8]})
         ]
         let metaParamsEstimations = {
@@ -1081,11 +1152,11 @@ let tests = function() {
           discountFactor
         }
         let mentalEstimations = [
-            undefined,
+            null,
             [Delta({v: 0.7})]
           ]
         let belief = [
-          undefined, /** over agent 0 */
+          null, /** over agent 0 */
           [1,3] /** over agent 1 (investee) */
         ]
         let alice = {
@@ -1158,7 +1229,7 @@ let tests = function() {
     assert(i >= 0 && i < testsArray.length,
       "index " + i + " of test invalid")
     let test = testsArray[i]
-    display(stringInABox("Test " + (i+1)))
+    display(emphasiseString("Test " + (i+1)))
     display(test.description)
     let trajectories =
       simulateScenarios(test.scenarios, test.makeGame, test.agents, test.callbacks)
@@ -1172,10 +1243,22 @@ let tests = function() {
     return "all passed, congrats"
   }
 
-  return { runAll, runSingle }
+  return { runAll, runSingle, quantity: testsArray.length }
 }()
 
 let runAll = tests.runAll
 let runSingle = tests.runSingle
-// runAll()
-runSingle(4)
+let quantity = tests.quantity
+
+const testNo = argv.test
+if (testNo >= 0) {
+  assertHasType(testNo, INT_TYPE,
+      'integration.wppl: --test argument must be an integer, ' +
+      'found: ' + testNo + ' of type ' + typeof testNo)
+  assertBetween(testNo, 0, quantity - 1,
+      'integration.wppl: --test argument must identify an existing ' +
+      'test, i.e., be between 0 and ' + (quantity - 1) + ', but found: ' + testNo)
+  runSingle(testNo)
+} else {
+  runAll()
+}

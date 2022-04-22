@@ -1,166 +1,104 @@
-/** dependencies:
- * - assert
+/**
+ * @fileoverview This file collects auxiliary functions used
+ * throughout the codebase that were not deemed to deserve a separate file
+ *
+ * @requires assert.wppl
  */
 
+/**
+ * Retrieves the ID of the "other" agent under the assumption that
+ * there are two in total, equivalent to (+1) mod 2 operation
+ * @param {number} agentID must be 0 or 1
+ * @returns {number} ID of the other agent
+ */
 let otherAgentID = function(agentID) {
-    assert(agentID === 0 || agentID === 1,
+  assert(agentID === 0 || agentID === 1,
       "otherAgent() called with " + agentID + " but only IDs" +
       " 0 and 1 allowed!")
-    return (agentID + 1) % 2
+  return (agentID + 1) % 2
 }
 
-/** returns an array [start, start+1,...,end] */
-let rangeArray  = function(start,end,stepOptional) {
-    assertDefined(start, "rangeArray(): start index undefined")
-    assertDefined(end, "rangeArray(): end index undefined")
-    let step = stepOptional || 1
-    return (start > end) ? [] : [start].concat(rangeArray(start+step,end, step))
-}
-
-let arrayReplace = function (array, index, item) {
-    assertIsArray(array, ANY_TYPE, -1,
-      "arrayReplace called on " + array + "; expected: array")
-    assert(index >= 0 && index < array.length,
-      "arrayReplace(): found index=" + index + " for array " + array)
-    return mapIndexed(function(i, elem) {
-        if (index == i) return item
-        return elem
-    }, array)
-}
-
-let arrayJoin = function(a1,a2) {
-    return a1.concat(a2)
-}
-
-let arrayCons = function(x, arr) {
-    return [x].concat(arr)
-}
-
-let arrayConcat = function(arrOfArrs) {
-    return reduce(arrayJoin, [], arrOfArrs)
-}
-
-let arrayReverse = function(arr) {
-    assertIsArray(arr, ANY_TYPE, -1,
-      "arrayReverse called on " + arr + "; expected: array")
-    return reduce(function(x, acc) {
-        return acc.concat([x])
-    }, [], arr)
-}
-
-let arrayAddElementWise = function(arr1, arr2) {
-    assertIsArray(arr1, ANY_TYPE, -1,
-      "arrayAddElementWise expects array1; found " + arr1)
-    assertIsArray(arr2, ANY_TYPE, -1,
-      "arrayAddElementWise expects array2; found " + arr2)
-    let l = arr1.length
-    assert(l === arr2.length,
-      "arrayAddElementWise() expects arrays of same size; " +
-      "found length " + arr1.length + " and " + arr2.length)
-    return mapN(function(i) {
-        return arr1[i] + arr2[i]
-    }, l)
-}
-
-let arrayIsEmpty = function(array) {
-    assertIsArray(array, ANY_TYPE, -1,
-      "isEmpty called on " + array + "; expected: array")
-    return array.length === 0
-}
-
-/** takes first n elements of array */
-let arrayTake = function(array, n) {
-    let arrayTakeHelper = function(array, n, i) {
-        assertIsArray(array, ANY_TYPE, -1,
-          "arrayTake called on " + array + "; expected: array" )
-        if (i >= n) return []
-        if (i + 1 > array.length) return []
-        return arrayCons(array[i], arrayTakeHelper(array, n, i+1))
-    }
-    return arrayTakeHelper(array, n, 0)
-}
-
-/** drops first n elements of array */
-let arrayDrop = function(array, n) {
-    let arrayDropHelper = function(array, n, i) {
-        assertIsArray(array, ANY_TYPE, -1,
-          "arrayDrop called on " + array + "; expected: array" )
-        if (i + 1 > array.length) return []
-        if (i < n) return arrayDropHelper(array, n, i+1)
-        return arrayCons(array[i], arrayDropHelper(array, n, i+1))
-    }
-    return arrayDropHelper(array, n, 0)
-}
-
-/** This is a left fold (function @reduce provided by webppl is a right
- * fold). */
-let reduceL = function(f, acc, arr) {
-    assertIsArray(arr, ANY_TYPE, -1,
-      "reduceL called on " + arr + "; expected: array")
-    if (arr.length == 0) return acc
-    return reduceL(f, f(acc, arr[0]), arr.slice(1))
-}
-
-let reduceL1 = function(f, arr) {
-    assertIsArray(arr, ANY_TYPE, -1,
-      "reduceL1 called on " + arr + "; expected: array")
-    assert(arr.length > 0, "reduceL1(): input arr empty: " + arr)
-    reduceL(f, arr[0], arr.slice(1))
-}
-
+/** Retrieves the smaller of two numbers */
 let min = function(a,b) {
-    return (a>b) ? b : a
+  return (a>b) ? b : a
 }
 
+/** Retrieves the bigger of two numbers */
 let max = function(a,b) {
-    return (a>b) ? a : b
+  return (a>b) ? a : b
 }
 
+/**
+ * Retrieves a current timestamp (seconds since UNIX epoch).
+ * Used for debugging and logging
+ */
 let now = function() {
-    return Math.floor(Date.now() / 1000)
+  return Math.floor(Date.now() / 1000)
 }
 
-/** wrappers around _top for calling javascript functions */
-let parseInt = function(s) {_top.parseInt(s)}
+/** Wrappers around _top for frequently used Javascript functions */
+let parseInt = function(s) { return _top.parseInt(s)}
 let parseFloat = function(s) { return _top.parseFloat(s)}
 
 /**
- * returns the most probable value in a support of a given distribution.
- * support must be passed separately as it is not accessible from the distribution object
+ * Returns the most probable value in a support (which must be finite) of a
+ * given distribution. The support must be passed separately even though it
+ * typically is accessible from the distribution object (d.support())
+ * @param {object} dist the distribution object
+ * @param {number[]} support of the distribution
+ * @returns {number} the value deemed most likely by dist
  */
 let mostProbableValueInSupport = function(dist, support) {
-    let mostProbableValueInSupportHelper = function(dist, support, maxProbSoFar, valueWithMaxProb) {
+  let mostProbableValueInSupportHelper =
+      function(dist, support, maxProbSoFar, valueWithMaxProb) {
         if (support.length == 0) return valueWithMaxProb
         let thisValue = support[0]
         let thisValueProb = Math.exp(dist.score(thisValue))
         let supportTail = support.slice(1)
         if (thisValueProb > maxProbSoFar) {
-            return mostProbableValueInSupportHelper(dist, supportTail, thisValueProb, thisValue)
+          return mostProbableValueInSupportHelper(
+              dist, supportTail, thisValueProb, thisValue)
         }
-        return mostProbableValueInSupportHelper(dist, supportTail, maxProbSoFar, valueWithMaxProb)
-    }
-    return mostProbableValueInSupportHelper(dist, support, 0, undefined)
+        return mostProbableValueInSupportHelper(
+            dist, supportTail, maxProbSoFar, valueWithMaxProb)
+      }
+      return mostProbableValueInSupportHelper(
+          dist, support, 0, null)
 }
 
+/**
+ * Computes the number of components in agents' utility functions.
+ * This differs between agents as each cares about some mental states
+ * of some agents (others or themselves). That information is stored in
+ * the array of mental utilities, which this function maps over.
+ * @param {number} physicalRewardsNo
+ * @param {number[][]} mentalUtilitiesArr nested array, indexed by agent
+ * @returns {number[]} number of goal coeffs indexed by agent
+ */
 let computeGoalCoeffsNumber = function(physicalRewardsNo, mentalUtilitiesArr) {
-    let result = map(function(agentMentalUtils) {
-        return physicalRewardsNo + arrayConcat(agentMentalUtils).length
-    }, mentalUtilitiesArr)
-    return result
+  let result = map(function(agentMentalUtils) {
+    return physicalRewardsNo + arrayConcat(agentMentalUtils).length
+  }, mentalUtilitiesArr)
+  return result
 }
 
-/** EQUALITY FUNCTIONS */
+/**
+ * Equality
+ */
+const EPSILON = Number.EPSILON * 10 // used for floating point comparisons
 
-let EPSILON = Number.EPSILON * 10 // used for floating point comparisons
-
-/** checks two numbers are approximately equal */
+/** Approximate equality of two scalars */
 let approxEqual = function(a,b) {
-    return Math.abs(a - b) < EPSILON
+  return Math.abs(a - b) < EPSILON
 }
 
+/**
+ * Approximate piecewise equality of arrays
+ * Pre: arr1.length == arr2.length
+ */
 let approxEqualArr = function(arr1,arr2) {
-    let eachEqual = map2(function(a1,a2) {
-        return approxEqual(a1,a2)
-    }, arr1, arr2)
-    return all(identity, eachEqual)
+  let eachEqual = map2(function(a1,a2) {
+    return approxEqual(a1,a2)
+  }, arr1, arr2)
+  return all(identity, eachEqual)
 }

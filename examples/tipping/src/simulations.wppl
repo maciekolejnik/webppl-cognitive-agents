@@ -189,7 +189,7 @@ let randomSimulationsExperiment = function() {
   }
 
   let getParams = function() {
-    let roundsStr = assertDefined(argv.rounds,
+    let roundsStr = assertDefinedNotNull(argv.rounds,
       "rounds must be specified; pass it as --rounds <5/10/15>")
     let rounds = parseInt(roundsStr)
     assert(rounds > 0, "rounds must be > 0; found: " + rounds)

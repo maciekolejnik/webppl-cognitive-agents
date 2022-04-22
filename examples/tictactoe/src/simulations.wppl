@@ -1,7 +1,5 @@
 /** To run
- *  $ webppl examples/tictactoe/src/experiments.wppl --require .
- *    --require examples/tictactoe/ [--] [--help] [--experiment <experimentID>]
- *    [--scenario <scenarioID>] [--runs <numberOfRunsOfEachScenario>]
+ *  $ webppl examples/tictactoe/src/simulations.wppl --require . --require examples/tictactoe/ [--] [--help] [--experiment <experimentID>] [--scenario <scenarioID>] [--runs <numberOfRunsOfEachScenario>]
  */
 
 /** Tic-tac-toe experiments
@@ -19,7 +17,7 @@ let final = function(game, agents, finalState, names) {
     finalState :
     function() {
       //convert into board
-      let emptyBoard = repeat(9, getUndefined)
+      let emptyBoard = repeat(9, getNull)
       return reduceL(function(board,move) {
         return arrayReplace(board, move[1], move[0])
       }, emptyBoard, finalState)
@@ -52,17 +50,17 @@ let lookAheadExperiment = function() {
     }
   }
   let getInitialState = function(agentID, lookAheadEstimation) {
-    let alpha = [undefined, Delta({v: 1000})]
-    let discountFactor = [undefined, Delta({v: 0.9})]
-    let lookAhead = [undefined, Delta({v: lookAheadEstimation})]
+    let alpha = [null, Delta({v: 1000})]
+    let discountFactor = [null, Delta({v: 0.9})]
+    let lookAhead = [null, Delta({v: lookAheadEstimation})]
     let belief = [
-      Delta({v:["belief over oneself"]}),
+      null,
       Delta({v:[1]})
     ]
     return {
       belief: (agentID == 0) ?
         belief : arrayReverse(belief),
-      mentalEstimations : [undefined, undefined],
+      mentalEstimations : [null, null],
       metaParamsEstimations: {
         alpha: (agentID == 0) ?
           alpha : arrayReverse(alpha),
@@ -86,8 +84,8 @@ let lookAheadExperiment = function() {
         name: 'strong vs strong and both think their opponent strong',
         agents:
           [
-            getAgent(0, 9, 9),
-            getAgent(1, 9, 9)
+            getAgent(0, 5, 4),
+            getAgent(1, 5, 4)
           ],
         options: {
           horizon: 9,
@@ -101,7 +99,7 @@ let lookAheadExperiment = function() {
         name: 'strong vs weak but strong thinks opponent strong',
         agents:
           [
-            getAgent(0, 9, 9),
+            getAgent(0, 5, 5),
             getAgent(1, 3, 3)
           ],
         options: {
@@ -116,7 +114,7 @@ let lookAheadExperiment = function() {
         name: 'strong vs weak and strong thinks opponent weak',
         agents:
           [
-            getAgent(0, 9, 3),
+            getAgent(0, 5, 3),
             getAgent(1, 3, 3)
           ],
         options: {
@@ -153,22 +151,22 @@ let lookAheadExperiment = function() {
 
   let runsDefault = 10
 
-  let runAll = function(repsOpt) {
-    let reps = repsOpt || runsDefault
-    simulateScenarios(scenarios, makeTicTacToe, names, callbacks, reps)
-  }
-
-  let runE = function(experimentNumber, repsOpt) {
-    assertHasType(experimentNumber, INT_TYPE,
-      "lookAheadExperiment: run(): experimentNumber must be an " +
-      "index into an array; found: " + toString(experimentNumber))
-    assert(experimentNumber >= 0 && experimentNumber < scenarios.length,
-      "lookAheadExperiment: run(): experimentNumber out of range: " +
-      experimentNumber + "; expected between 0 and " + (scenarios.length - 1))
-    let reps = repsOpt || runsDefault
-    let scenario = scenarios.slice(experimentNumber, experimentNumber + 1)
-    simulateScenarios(scenario, makeTicTacToe, names, callbacks, reps )
-  }
+  // let runAll = function(repsOpt) {
+  //   let reps = repsOpt || runsDefault
+  //   simulateScenarios(scenarios, makeTicTacToe, names, callbacks, reps)
+  // }
+  //
+  // let runE = function(experimentNumber, repsOpt) {
+  //   assertHasType(experimentNumber, INT_TYPE,
+  //     "lookAheadExperiment: run(): experimentNumber must be an " +
+  //     "index into an array; found: " + toString(experimentNumber))
+  //   assert(experimentNumber >= 0 && experimentNumber < scenarios.length,
+  //     "lookAheadExperiment: run(): experimentNumber out of range: " +
+  //     experimentNumber + "; expected between 0 and " + (scenarios.length - 1))
+  //   let reps = repsOpt || runsDefault
+  //   let scenario = scenarios.slice(experimentNumber, experimentNumber + 1)
+  //   simulateScenarios(scenario, makeTicTacToe, names, callbacks, reps )
+  // }
 
   return {
     name: 'lookAheadExperiment',
@@ -184,9 +182,9 @@ let lookAheadExperiment = function() {
 }()
 
 
-/** PART 2: Tic-tac-toe with mental component (parent vs kid)
- *
- * */
+/**
+ * PART 2: Tic-tac-toe with mental component (parent vs kid)
+ */
 let parentKidExperiment = function() {
   let getParentParams = function(firstCoeff, lookAhead) {
     return {
@@ -200,19 +198,19 @@ let parentKidExperiment = function() {
     }
   }
   let getParentInitialState = function(lookAheadEstimation) {
-    let alpha = [Delta({v: 5}), undefined]
-    let discountFactor = [Delta({v: 0.7}), undefined]
-    let lookAhead = [Delta({v: lookAheadEstimation}), undefined]
+    let alpha = [Delta({v: 5}), null]
+    let discountFactor = [Delta({v: 0.7}), null]
+    let lookAhead = [Delta({v: lookAheadEstimation}), null]
     let belief = [
       Delta({v:[1]}),
-      Delta({v:["belief over oneself"]})
+      null
     ]
     return {
       belief,
       mentalEstimations :
         [
           [Delta({v: 0})], /** over agent 0 (kid) */
-          undefined /** over oneself */
+          null /** over oneself */
         ],
       metaParamsEstimations: {
         alpha,
@@ -233,16 +231,16 @@ let parentKidExperiment = function() {
     }
   }
   let getChildInitialState = function(lookAheadEstimation) {
-    let alpha = [undefined, Delta({v: 100})]
-    let discountFactor = [undefined, Delta({v: 0.9})]
-    let lookAhead = [undefined, Delta({v: lookAheadEstimation})]
+    let alpha = [null, Delta({v: 100})]
+    let discountFactor = [null, Delta({v: 0.9})]
+    let lookAhead = [null, Delta({v: lookAheadEstimation})]
     let belief = [
-      Delta({v:["belief over oneself"]}),
+      null,
       Delta({v:[1,0]})
     ]
     return {
       belief,
-      mentalEstimations : [undefined, undefined],
+      mentalEstimations : [null, null],
       metaParamsEstimations: {
         alpha,
         lookAhead,
@@ -336,4 +334,4 @@ let parentKidExperiment = function() {
 
 let experiments = [lookAheadExperiment, parentKidExperiment]
 
-processCommandline(makeTicTacToe, experiments)
+processCommandline(makeTicTacToe, experiments, argv)

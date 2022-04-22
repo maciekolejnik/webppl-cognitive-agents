@@ -51,7 +51,10 @@ let makeBraveryGame = function(gameSpecificParams) {
    * through 0 (no preference) to 1 (string preference for bold).
    * This value is reflected in computePride() below
    */
-  let p2Bias = gameSpecificParams.bias
+  assertDefinedNotNull(gameSpecificParams,
+      'makeBraveryGame(): gameSpecificParams must be provided, but not found')
+  let p2Bias = assertDefinedNotNull(gameSpecificParams.bias,
+      'makeBraveryGame(): gameSpecificParams.bias must be provided; not found')
 
   let P1 = 0
   let P2 = 1

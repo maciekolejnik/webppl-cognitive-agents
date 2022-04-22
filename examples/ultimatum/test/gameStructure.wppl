@@ -35,11 +35,11 @@ let testTransitions = function() {
   let proposerActions = [0,1,2,3,4,5,6,7,8,9,10]
   let proposeeActions = ['accept', 'reject']
   let game = makeUltimatumCSMG(gameSpecificParams)
-  let actions = assertDefined(game.actions,
+  let actions = assertDefinedNotNull(game.actions,
   "testTransitions(): game.actions undefined")
-  let transitionFn = assertDefined(game.transitionFn,
+  let transitionFn = assertDefinedNotNull(game.transitionFn,
     "testTransitions(): game.transitionFn undefined")
-  let initialState = assertDefined(game.initialState,
+  let initialState = assertDefinedNotNull(game.initialState,
   "testTransitions(): initialState undefined")
   assertEqual(turn(initialState), 0,
     "FAIL: testTransitions(): turn at initial state not as " +

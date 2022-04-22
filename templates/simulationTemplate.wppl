@@ -102,12 +102,12 @@ let getScenarios = function() {
     let name = "example scenario"
     let firstAgentParams = generateParams([0.4,0.6], 100, 0.9, 3)
     let firstAgentInitialState = {
-      belief: [undefined, [2,2]],
-      mentalEstimations: [undefined, [Delta({v: 0.7})]],
+      belief: [null, [2,2]],
+      mentalEstimations: [null, [Delta({v: 0.7})]],
       metaParamsEstimations: {
-        alpha: [undefined, Categorical({vs: [100]})],
-        lookAhead: [undefined, Categorical({vs: [2]})],
-        discountFactor: [undefined, Categorical({vs: [0.8]})]
+        alpha: [null, Categorical({vs: [100]})],
+        lookAhead: [null, Categorical({vs: [2]})],
+        discountFactor: [null, Categorical({vs: [0.8]})]
       }
     }
     let firstAgent = {
@@ -116,12 +116,12 @@ let getScenarios = function() {
     }
     let secondAgentParams = generateParams([0.4,0.6], 100, 0.9, 3)
     let secondAgentInitialState = {
-      belief: [[1], undefined],
-      mentalEstimations: [[Delta({v: "irrelevant"})], undefined], // an array of mental estimations (where each estimation is a distribution)
+      belief: [[1], null],
+      mentalEstimations: [[Delta({v: "irrelevant"})], null], // an array of mental estimations (where each estimation is a distribution)
       metaParamsEstimations: {
-        alpha: [Categorical({vs: [100]}), undefined],
-        lookAhead: [Categorical({vs: [2]}), undefined],
-        discountFactor: [Categorical({vs: [0.8]}), undefined]
+        alpha: [Categorical({vs: [100]}), null],
+        lookAhead: [Categorical({vs: [2]}), null],
+        discountFactor: [Categorical({vs: [0.8]}), null]
       }
     }
     let secondAgent = {

@@ -59,7 +59,8 @@ let makeCSMG = function(gameSpecificParams) {
             error("not implemented")
         }
 
-        /** does *action* taken in *state* end a round?
+        /** (optional)
+         * does *action* taken in *state* end a round?
          * A concept of a round (which is an 'atomic' fragment of a game; it
          * either gets executed fully or not at all) is introduced so that
          * discounting can happen after every round, rather than after every move */
@@ -122,7 +123,7 @@ let makeCSMG = function(gameSpecificParams) {
 
         return {
             actionRewards,
-            stateRewards
+            stateRewards,
         }
     }()
 
@@ -169,16 +170,18 @@ let makeCSMG = function(gameSpecificParams) {
         }
     }()
 
+    /** this is optional, use it only when heuristics applies */
     let heuristics = function() {
+        /** optional */
         let action = function() {
             let applies = function(state, estimatingAgentID, estimatedAgentID) {
-                return false
+                error('not implemented')
             }
 
             let computeOpponentAction =
               function(estimatingAgentID, estimatedAgentID, action,
                        state, getMentalState, getMentalEstimation) {
-              return false
+                  error('not implemented')
             }
 
             return {
@@ -192,11 +195,11 @@ let makeCSMG = function(gameSpecificParams) {
             /** does heuristic apply for updating belief of
              *agent* when *action* taken at state */
             let applies = function(state, action, agent) {
-                return false
+                error('not implemented')
             }
 
             let updateBelief = function(fullBelief, state, action) {
-               return fullBelief
+                error('not implemented')
             }
 
             return {
