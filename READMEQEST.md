@@ -126,9 +126,9 @@ tipping game simulated.
 
 To learn from the generated files, execute the following three commands:
 ```
-bash examples/tipping/inferFromGeneratedData inferFromGenerated5rounds.txt 5 10
-bash examples/tipping/inferFromGeneratedData inferFromGenerated10rounds.txt 10 10
-bash examples/tipping/inferFromGeneratedData inferFromGenerated15rounds.txt 15 10
+bash examples/tipping/inferFromGeneratedData 5rounds.txt 5 10
+bash examples/tipping/inferFromGeneratedData 10rounds.txt 10 10
+bash examples/tipping/inferFromGeneratedData 15rounds.txt 15 10
 ```
 
 This will likely take a while, especially the last command (1-2 hours).

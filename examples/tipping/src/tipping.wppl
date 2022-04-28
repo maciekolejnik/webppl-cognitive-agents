@@ -143,6 +143,14 @@ let makeTippingCSMG = function(gameSpecificParams) {
       }
     }
 
+    /** does *action* taken in *state* end a round?
+     * A concept of a round (which is an 'atomic' fragment of a game; it
+     * either gets executed fully or not at all) is introduced so that
+     * discounting can happen after every round, rather than after every move */
+    let endsRound = function (state, action) {
+      return state.pastService.length > state.pastTips.length
+    }
+
     /** checks whether *state* is the initial state */
     let isInitial = function (state) {
       return state.pastService.length == 0 && state.pastTips.length == 0
@@ -159,6 +167,7 @@ let makeTippingCSMG = function(gameSpecificParams) {
     let API = {
       getPreviousState,
       getLastAction,
+      endsRound,
       isInitial,
       turn,
       stateToString,
@@ -282,6 +291,48 @@ let makeTippingCSMG = function(gameSpecificParams) {
     }
   }()
 
+  let heuristics = function() {
+    let action = function() {
+      let applies = function(state, estimatingAgentID, estimatedAgentID) {
+        return false
+      }
+
+      let computeOpponentAction =
+        function(estimatingAgentID, estimatedAgentID, action,
+                 state, getMentalState, getMentalEstimation) {
+          return false
+        }
+
+      return {
+        applies,
+        computeOpponentAction
+      }
+    }()
+
+
+    let belief = function() {
+      /** does heuristic apply for updating belief of
+       *agent* when *action* taken at state */
+      let applies = function(state, action, agent) {
+        return false
+      }
+
+      let updateBelief = function(fullBelief, state, action) {
+        return fullBelief
+      }
+
+      return {
+        applies,
+        updateBelief
+      }
+    }()
+
+    return {
+      action,
+      belief
+    }
+  }()
+
   /** Defines the initial state of the model (we assume there's only one such) */
   let initialState = {
     pastService: [],
@@ -326,6 +377,7 @@ let makeTippingCSMG = function(gameSpecificParams) {
     initialState,
     physicalRewardStructure,
     mentalStateDynamics,
+    heuristics,
     rewardUtilityFunctions,
     API,
     params

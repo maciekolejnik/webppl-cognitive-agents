@@ -43,7 +43,8 @@ let testExperiment = function() {
         alpha: 0,
         discountFactor: 1,
         lookAhead: 1
-      }
+      },
+      usesHeuristics: false
     }
     let benInitialState = {
       belief: [undefined, [2,2]],
@@ -65,7 +66,8 @@ let testExperiment = function() {
         alpha: 50,
         discountFactor: 1,
         lookAhead: 1
-      }
+      },
+      usesHeuristics: false
     }
     let abiInitialState = {
       belief: [[1], undefined],
@@ -115,7 +117,8 @@ let randomSimulationsExperiment = function() {
       alpha: 0,
       discountFactor: 1,
       lookAhead: 1
-    }
+    },
+    usesHeuristics: false
   }
   let benInitialState = {
     belief: [undefined, [2,2]],
@@ -138,7 +141,8 @@ let randomSimulationsExperiment = function() {
         alpha: 10,
         discountFactor: 1,
         lookAhead: 1
-      }
+      },
+      usesHeuristics: false
     }
     let abiInitialState = {
       belief: [[1], undefined],
@@ -267,7 +271,7 @@ let randomSimulationsExperiment = function() {
 }()
 
 let experiments = [testExperiment, randomSimulationsExperiment]
-let outcome = processCommandline(makeTippingCSMG, experiments)
+let outcome = processCommandline(makeTippingCSMG, experiments, argv)
 
 
 // let printDataFilesFromTrajectories = function(trajectories, scenarios) {

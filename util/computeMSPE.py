@@ -48,7 +48,7 @@ for i in range(files_no):
 
 # PHASE 2
 posterior = []
-with open("examples/tipping/results/inferFromGenerated" + str(rounds) + "rounds.txt", "r") as f:
+with open("examples/tipping/results/" + str(rounds) + "rounds.txt", "r") as f:
     content = f.readlines()
     lineNo = 3
     simNo = 0

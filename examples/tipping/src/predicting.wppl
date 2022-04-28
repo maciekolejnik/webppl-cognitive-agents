@@ -4,6 +4,9 @@
  */
 
 let INFERENCE_MODE = true
+if (argv.log) {
+  globalStore.loggingLevel = parseInt(argv.log)
+}
 // let LOGGING_LEVEL = getLoggingLevel()
 // display("level: " + LOGGING_LEVEL)
 
@@ -214,7 +217,8 @@ let processData = function(data, csmg, prior) {
           let agentSetup = sample(playersBelief[actingAgentID])
           let agentParams = {
             goalCoeffs: agentSetup.goalCoeffs,
-            metaParams: agentSetup.metaParams
+            metaParams: agentSetup.metaParams,
+            usesHeuristics: false
           }
           let agentInitialState = {
             belief: agentSetup.belief,

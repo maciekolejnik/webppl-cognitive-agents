@@ -12,7 +12,7 @@ do
   GOALCOEFFS_SUPPORT="[[$MONEY/10,$GUILT/10]]"
 
   echo "Fixing goalCoeffs to $GOALCOEFFS_SUPPORT and GASP to $GASP_SUPPORT..." | tee -a $FULLPATH
-  webppl examples/tipping/src/predicting.wppl --require . --require examples/tipping/ --require webppl-fs -- --data synthetic/mediumTips.csv --goalCoeffsSupport $GOALCOEFFS_SUPPORT --gaspScoreSupport $GASP_SUPPORT --tippingNormSupport [5,7,9,11,15] >> $FULLPATH
+  webppl examples/tipping/src/predicting.wppl --require . --require examples/tipping/ --require webppl-fs -- --log 1 --data synthetic/mediumTips.csv --goalCoeffsSupport $GOALCOEFFS_SUPPORT --gaspScoreSupport $GASP_SUPPORT --tippingNormSupport [5,7,9,11,15] >> $FULLPATH
 
   ((counter++))
 done

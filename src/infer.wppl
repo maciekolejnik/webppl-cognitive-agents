@@ -104,8 +104,8 @@
  */
 
 let getDataFilename = function(path) {
-  // let filename = argv.data
-  let filename = "test.csv"
+  let filename = argv.data
+  // let filename = "test.csv"
   if (filename === undefined) {
     error("Please specify a data file name using -- --data <filename> command line option")
   }
