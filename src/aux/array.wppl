@@ -1,0 +1,189 @@
+/**
+ * @fileoverview Groups together all the array utility functions
+ *
+ * @requires assert.wppl
+ */
+
+/**
+ * Constructs a "sequence" array of the type [x, x+s, ..., y]
+ * where y is chosen as the maximal value of the form x+n*s that does not
+ * exceed provided upper bound (see @param end below)
+ * @param {number} start starting point for the sequence array
+ * @param {number} end upper bound (inclusive) for the sequence array
+ * @param {?number} stepOpt optional increment size, by default 1
+ * @returns {number[]} an array [start, start + s, ..., end]
+ */
+let rangeArray  = function(start,end, stepOpt) {
+  assertHasType(
+      start, 'number','rangeArray(): start must be a number; found: ' + start)
+  assertHasType(
+      end, 'number','rangeArray(): end must be a number; found: ' + end)
+  let step = stepOpt || 1
+  return (start > end) ? [] : [start].concat(rangeArray(start+step,end, step))
+}
+
+/**
+ * Replaces a specified entry of an array with a provided value.
+ * Note that original array is not modified and a new one is returned.
+ * @param {*[]} array
+ * @param {number} index a non-negative integer
+ * @param {*} item
+ * @returns {*[]}
+ */
+let arrayReplace = function (array, index, item) {
+  assertIsArray(array, ANY_TYPE, -1,
+      'arrayReplace called on ' + array + '; expected: array')
+  assertHasType(index, INT_TYPE,
+      'arrayReplace: index must be an integer; found: ' + index)
+  assert(index >= 0 && index < array.length,
+      'arrayReplace(): found index=' + index + ' for array ' + array)
+  return mapIndexed(function(i, elem) {
+    if (index == i) return item
+    return elem
+  }, array)
+}
+
+/**
+ * Concatenates two arrays.
+ * @param {*[]} a1
+ * @param {*[]} a2
+ * @returns {*[]} [...a1, ...a2]
+ */
+let arrayJoin = function(a1,a2) {
+  assertIsArray(a1, ANY_TYPE, -1,
+      'arrayJoin: a1 must be an array; found: ' + a1)
+  assertIsArray(a2, ANY_TYPE, -1,
+      'arrayJoin: a2 must be an array; found: ' + a2)
+  return a1.concat(a2)
+}
+
+/**
+ * Prepends an element to an array.
+ * @param {*} x
+ * @param {*[]} arr
+ * @returns {*[]} x : arr
+ */
+let arrayCons = function(x, arr) {
+  assertIsArray(arr, ANY_TYPE, -1,
+      'arrayJoin: arr must be an array; found: ' + arr)
+  return [x].concat(arr)
+}
+
+/**
+ * Concatenates an arbitrary number of arrays.
+ * @param {*[]} arrOfArrs its elements must be arrays
+ * @returns {*[]} "flattened" arrOfArrs
+ */
+let arrayConcat = function(arrOfArrs) {
+  assertIsArray(arrOfArrs, ARRAY_TYPE, -1,
+      'arrayConcat: arrOfArrs must be an array of arrays; found: ' + arrOfArrs)
+  return reduce(arrayJoin, [], arrOfArrs)
+}
+
+/**
+ * Reverses an array.
+ * @param {*[]} arr
+ * @returns {*[]} arr reversed
+ */
+let arrayReverse = function(arr) {
+  assertIsArray(arr, ANY_TYPE, -1,
+      'arrayReverse: arr must be an array; found: ' + arr)
+  return reduce(function(x, acc) {
+    return acc.concat([x])
+  }, [], arr)
+}
+
+/**
+ * Adds corresponding elements of two arrays to produce a third array
+ * whose entries are sums of entries of the input arrays
+ * @param {*[]} arr1
+ * @param {*[]} arr2 where arr1 and arr2 have the same lengths
+ * @returns {*[]} array a where a[i] = arr1[i] + arr2[i]
+ */
+let arrayAddElementWise = function(arr1, arr2) {
+  assertIsArray(arr1, ANY_TYPE, -1,
+      'arrayAddElementWise expects array1; found ' + arr1)
+  assertIsArray(arr2, ANY_TYPE, -1,
+      'arrayAddElementWise expects array2; found ' + arr2)
+  let l = arr1.length
+  assert(l === arr2.length,
+      'arrayAddElementWise() expects arrays of same size; ' +
+      'found length ' + arr1.length + ' and ' + arr2.length)
+  return mapN(function(i) {
+    return arr1[i] + arr2[i]
+  }, l)
+}
+
+/**
+ * Checks if an array is empty.
+ * @param {*[]} array
+ * @returns {boolean}
+ */
+let arrayIsEmpty = function(array) {
+  assertIsArray(array, ANY_TYPE, -1,
+      'arrayIsEmpty must be called on an array; found: ' + array)
+  return array.length === 0
+}
+
+/**
+ * Retrieves first n elements of an array.
+ * @param {*[]} array
+ * @param {number} n
+ * @returns {*[]}
+ */
+let arrayTake = function(array, n) {
+  assertIsArray(array, ANY_TYPE, -1,
+      'arrayTake must be called on an array; found: ' + array)
+  let arrayTakeHelper = function(array, n, i) {
+    if (i >= n) return []
+    if (i + 1 > array.length) return []
+    return arrayCons(array[i], arrayTakeHelper(array, n, i+1))
+  }
+  return arrayTakeHelper(array, n, 0)
+}
+
+/**
+ * Removes first n elements from an array (returns a new one).
+ * If n is greater or equal than the length of the array, en empty array
+ * is returned.
+ * @param {*[]} array
+ * @param {number} n
+ * @returns {*[]}
+ */
+let arrayDrop = function(array, n) {
+  assertIsArray(array, ANY_TYPE, -1,
+      'arrayDrop called on ' + array + '; expected: array' )
+  let arrayDropHelper = function(array, n, i) {
+    if (i + 1 > array.length) return []
+    if (i < n) return arrayDropHelper(array, n, i+1)
+    return arrayCons(array[i], arrayDropHelper(array, n, i+1))
+  }
+  return arrayDropHelper(array, n, 0)
+}
+
+/**
+ * Implements a left fold.
+ * Note that webppl comes with a reduce function which is a right fold.
+ * @param {function} f
+ * @param {*} acc
+ * @param {*[]} arr
+ * @returns {*}
+ */
+let reduceL = function(f, acc, arr) {
+  assertIsArray(arr, ANY_TYPE, -1,
+      'reduceL called on ' + arr + '; expected: array')
+  if (arr.length == 0) return acc
+  return reduceL(f, f(acc, arr[0]), arr.slice(1))
+}
+
+/**
+ * Fold with no accumulator.
+ * @param {function} f
+ * @param {*[]} arr
+ */
+let reduceL1 = function(f, arr) {
+  assertIsArray(arr, ANY_TYPE, -1,
+      'reduceL1 called on ' + arr + '; expected: array')
+  assert(arr.length > 0, 'reduceL1(): input arr empty: ' + arr)
+  reduceL(f, arr[0], arr.slice(1))
+}

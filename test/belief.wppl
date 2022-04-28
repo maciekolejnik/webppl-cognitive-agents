@@ -1,53 +1,63 @@
-/** test individualBeliefToString */
-let testIndividualBeliefToString = function() {
-  let inputs = [
-    {
-      indivBelief: {
-        representation: 'discrete',
-        value: Categorical({
-          vs: [[1, 0, 0], [0, 1, 0], [0, 0, 1],
-            [.5, .25, .25], [.25, .5, .25], [.25, .25, .5]]
-        })
+/**
+ * @fileoverview Tests for belief functions
+ *
+ * To run:
+ $ webppl test/belief.wppl --require ../webppl-cognitive-agents -- --log 2 --test 1
+ * The arguments are optional. Skipping the --test parameter will run all the tests
+ */
+
+const tests = [
+  /** test individualBeliefToString */
+  function() {
+    let inputs = [
+      {
+        indivBelief: {
+          representation: 'discrete',
+          value: Categorical({
+            vs: [[1, 0, 0], [0, 1, 0], [0, 0, 1],
+              [.5, .25, .25], [.25, .5, .25], [.25, .25, .5]]
+          })
+        },
+        numberOfGoalCoeffs: 3
       },
-      numberOfGoalCoeffs: 3
-    },
-    {
-      indivBelief: {
-        representation: 'dirichlet',
-        value: [3, 5, 2]
-      },
-      numberOfGoalCoeffs: 3
+      {
+        indivBelief: {
+          representation: 'dirichlet',
+          value: [3, 5, 2]
+        },
+        numberOfGoalCoeffs: 3
+      }
+    ]
+
+    let outputs = [
+      [1/3, 1/3, 1/3],
+      [3, 5, 2]
+    ]
+
+    let run = function() {
+      map2(function(inputs, output) {
+        let asString = individualBeliefToString(inputs.indivBelief, inputs.numberOfGoalCoeffs)
+        let asArray = _top.JSON.parse(asString)
+        assert(approxEqualArr(asArray, output),
+            "testIndiivudalBeliefToString: FAIL on expected output " +
+            arrayToString(output) + ", found: " + arrayToString(asArray))
+      }, inputs, outputs)
     }
-  ]
+    display("testIndiviudalBeliefToString: PASS")
+  },
 
-  let outputs = [
-    [1/3, 1/3, 1/3],
-    [3, 5, 2]
-  ]
-
-  map2(function(inputs, output) {
-    let asString = individualBeliefToString(inputs.indivBelief, inputs.numberOfGoalCoeffs)
-    let asArray = _top.JSON.parse(asString)
-    assert(approxEqualArr(asArray, output),
-      "testIndiivudalBeliefToString: FAIL on expected output " +
-    arrayToString(output) + ", found: " + arrayToString(asArray))
-  }, inputs, outputs)
-
-  display("testIndiivudalBeliefToString: PASS")
-}()
-
-/** test retrieveBeliefOver */
-let testRetrieveBeliefOver = function() {
+  /** test retrieveBeliefOver */
+  function() {
   let inputs = [
     {
       agentID: 0,
       belief: {
         representation: 'discrete',
         value:
-          [
-            Categorical({vs: [[0,1],[.3,.7],[.5,.5],[.8,.2]]}),
-            Categorical({vs: [[.4,.6],[.7,.3],[.3,.7]]})
-          ]
+            [
+              Categorical({vs: [[0,1],[.3,.7],[.5,.5],[.8,.2]]}),
+              Categorical({vs: [[.4,.6],[.7,.3],[.3,.7]]})
+            ]
       }
     },
     {
@@ -55,10 +65,10 @@ let testRetrieveBeliefOver = function() {
       belief: {
         representation: 'discrete',
         value:
-          [
-            Categorical({vs: [[0,1],[.3,.7],[.5,.5],[.8,.2]]}),
-            Categorical({vs: [[.4,.6],[.7,.3],[.3,.7]]})
-          ]
+            [
+              Categorical({vs: [[0,1],[.3,.7],[.5,.5],[.8,.2]]}),
+              Categorical({vs: [[.4,.6],[.7,.3],[.3,.7]]})
+            ]
       }
     },
     {
@@ -66,10 +76,10 @@ let testRetrieveBeliefOver = function() {
       belief: {
         representation: 'dirichlet',
         value:
-          [
-            [4,6,2],
-            [5,5,5]
-          ]
+            [
+              [4,6,2],
+              [5,5,5]
+            ]
       }
     },
     {
@@ -77,10 +87,10 @@ let testRetrieveBeliefOver = function() {
       belief: {
         representation: 'dirichlet',
         value:
-          [
-            [4,6,2],
-            [5,5,5]
-          ]
+            [
+              [4,6,2],
+              [5,5,5]
+            ]
       }
     }
   ]
@@ -104,12 +114,18 @@ let testRetrieveBeliefOver = function() {
     }
   ]
 
-  map2(function(inputs, expectedOutput) {
-    let actualOutput = retrieveBeliefOver(inputs.agentID, inputs.belief)
-    assertEqual(expectedOutput.representation, actualOutput.representation,
-      "testRetrieveBeliefOver: FAIL: representations don't match")
-    assertEqual(expectedOutput.value.params, actualOutput.value.params,
-      "testRetrieveBeliefOver: FAIL: dists don't match")
-  }, inputs, outputs)
+  let run = function() {
+      map2(function(inputs, expectedOutput) {
+        let actualOutput = retrieveBeliefOver(inputs.agentID, inputs.belief)
+        assertEqual(expectedOutput.representation, actualOutput.representation,
+            "testRetrieveBeliefOver: FAIL: representations don't match")
+        assertEqual(expectedOutput.value.params, actualOutput.value.params,
+            "testRetrieveBeliefOver: FAIL: dists don't match")
+      }, inputs, outputs)
+  }
+
   display("testRetrieveBeliefOver: PASS")
-}()
+}
+]
+
+runTests(argv, tests)

@@ -50,11 +50,11 @@
 let makeTippingCSMG = function(gameSpecificParams) {
   /** retrieve params for easier access.
    * make sure they're in the expected format */
-  assertDefined(gameSpecificParams,
+  assertDefinedNotNull(gameSpecificParams,
     "makeTippingCSMG(): gameSpecificParams undefined!")
-  let tippingNorm = assertDefined(gameSpecificParams.tippingNorm,
+  let tippingNorm = assertDefinedNotNull(gameSpecificParams.tippingNorm,
   "makeTippingCSMG(): tippingNorm undefined")
-  let gaspScores = assertDefined(gameSpecificParams.gaspScores,
+  let gaspScores = assertDefinedNotNull(gameSpecificParams.gaspScores,
     "makeTippingCSMG(): gaspScores undefined")
 
   assertHasType(tippingNorm, INT_TYPE, "tipping norm must be passed and be an integer")
@@ -119,9 +119,9 @@ let makeTippingCSMG = function(gameSpecificParams) {
   /** returns the string representation of *state*.
    * (for debugging purposes) */
   let stateToString = function (state) {
-    assertDefined(state.pastService,
+    assertDefinedNotNull(state.pastService,
       "stateToString(): pastService undefined")
-    assertDefined(state.pastTips,
+    assertDefinedNotNull(state.pastTips,
       "stateToString(): pastTips undefined")
     return "{serviceHistory: " + arrayToString(state.pastService) +
       ",tipsHistory: " + arrayToString(state.pastTips) + "}"

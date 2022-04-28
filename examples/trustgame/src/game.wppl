@@ -1,56 +1,54 @@
 /**
-Game structure
-- we refer to the two players as *investor* and *investee*
-- state consists of
-  * turn: indicates whether next move is investing or returning
-  * timeLeft: how many time steps are left in the game (-1 means infinite horizon)
-  * investments: history of amounts sent by investor (most recent first)
-  * returns: history of amounts sent by investee (most recent first)
-
-  //* endowments: a dictionary {'investor': x, 'investee': y} specifying
-    how much both players received in endowments in this stage
-
-- we allow integer transfers not exceeding money available to player
-- gameParams configure the game as follows:
-  * investorEndowment: how much does investor get at the start of each round
-  * investeeEndowment: how much does investee get at the start of each round
+ * @fileoverview This file defines the mechanics of the trust game, which
+ * includes standard stuff like what actions are available to agents in what
+ * states, but also less standard stuff such as the mental rewards agents
+ * gain by maintaining other's trust and the way agents estimate their
+ * opponent's trust towards them.
+ *
+ * ## Game structure
+ * - we refer to the two players as *investor* and *investee*
+ * - state consists of
+ *   - turn: indicates whether next move is investing or returning
+ *   - timeLeft: how many time steps are left in the game (-1 means infinite horizon)
+ *   - investments: history of amounts sent by investor (most recent first)
+ *   - returns: history of amounts sent by investee (most recent first)
+ * - we allow integer transfers not exceeding money available to player
+ * - gameParams configure the game as follows:
+ *   - investorEndowment: how much does investor get at the start of each round
+ *   - investeeEndowment: how much does investee get at the start of each round
 */
 
 /**
-var params = {
-  endowments : {
-    investor: 0,
-    investee: 0
-  },
-  k: 0,
-  horizon: {
-    investor: 0,
-    investee: 0
-  }
-}
-
- horizon is optional. it's introduced to model con man behaviour.
- the idea is that if horizon is passed for one of the players, then
- this players assumes game ends after that many moves. note that
- horizon is specified in terms of rounds, not steps.
-*/
+ * Constructs the trust game.
+ * @param {
+ *  {
+ *      endowments: {investor: number, investee: number},
+ *      k: number,
+ *      horizon: ?{investor: number, investee: number}
+ *  }
+ * } gameSpecificParams defines endowments and multiplication factor,
+ *  as well as optional horizon, which, if set, indicates that an agent
+ *  knows how many rounds the game will last (used to model con man)
+ * @returns {object} trust game structure
+ */
 let makeTrustCSMG = function(gameSpecificParams) {
-  let endowments = assertDefined(gameSpecificParams.endowments,
+  let endowments = assertDefinedNotNull(gameSpecificParams.endowments,
     "makeTrustCSMG(): endowments undefined")
-  let investorEndowment = assertDefined(endowments.investor,
+  let investorEndowment = assertDefinedNotNull(endowments.investor,
     "makeTrustCSMG(): investorEndowment undefined")
-  let investeeEndowment = assertDefined(endowments.investee,
+  let investeeEndowment = assertDefinedNotNull(endowments.investee,
     "makeTrustCSMG(): investeeEndowment undefined")
-  let k = assertDefined(gameSpecificParams.k,
+  let k = assertDefinedNotNull(gameSpecificParams.k,
     "makeTrustCSMG(): k undefined")
   let horizon = gameSpecificParams.horizon
+
   /**********************************
    *     Some auxiliary functions   *
    * ********************************/
 
-  /** Compute endowment of agents in a state
-   * @param state
-   * @param params
+  /**
+   * Retrieves endowments of agents in a state.
+   * @param {{turn: string, investments: number[], returns" number[]}} state
    * @returns {investor: number, investee: number}
    */
   let endowment = function(state) {
@@ -63,14 +61,12 @@ let makeTrustCSMG = function(gameSpecificParams) {
     }
   }
 
-  /** Computes the monetary transfer for each agent (positive or negative)
-   * when *action* is taken in *state*
-   * Params:
-   *  - *state*
-   *  - *action*
-   * Returns
-   *   an dictionary indexed by agent with money amount received (positive) or
-   *   given away (negative)
+  /**
+   * Computes the monetary income of each agent (positive or negative)
+   * when action is taken in some state.
+   * @param {{turn: string, investments: number[], returns" number[]}} state
+   * @param {number} action
+   * @returns {{investor: number, investee: number}}
    */
   let transfer = function(state, action) {
     let investor = action * ((state.turn == "investor") ? -1 : 1)
@@ -80,13 +76,22 @@ let makeTrustCSMG = function(gameSpecificParams) {
     }
   }
 
-  /** Compute maximal possible amount that can be transferred from a given state */
+  /**
+   * Computes maximal possible amount that can be transferred
+   * from a given state
+   */
   let maxPossibleTransfer = function(state) {
     return (state.turn == 'investor') ? investorEndowment :
       state.investments[0] * k
   }
 
   /** Game mechanics */
+
+  /**
+   * Retrieves actions available to an agent in a state.
+   * @param {{turn: string, investments: number[], returns" number[]}} state
+   * @returns {number[]}
+   */
   let actions = function(state) {
     if (state.turn == 'investor') {
       return rangeArray(0, investorEndowment)
@@ -97,6 +102,13 @@ let makeTrustCSMG = function(gameSpecificParams) {
     return rangeArray(0, state.investments[0] * k)
   }
 
+  /**
+   * Encodes the transition function of the trust game.
+   * @param {{turn: string, investments: number[], returns" number[]}} state
+   * @param {number} action
+   * @returns {object} next state, which in this case is determined but
+   * must be a distribution, hence a Delta is used
+   */
   let transitionFn = function(state, action) {
     info("transitionFn(state: " + stateToString(state) + ", action: " + action + ")")
     let turn = state.turn
@@ -116,7 +128,7 @@ let makeTrustCSMG = function(gameSpecificParams) {
   }
 
   let turn = function (state) {
-    return (state.turn === 'investor') ? 0 : 1
+    return state.turn === 'investor' ? 0 : 1
   }
 
   let stateToString = function (state) {
@@ -168,27 +180,29 @@ let makeTrustCSMG = function(gameSpecificParams) {
     return API
   }()
 
-  /** Physical rewards structure
-   *  This is a relatively simple component which models state and
-   *  action rewards that agents receive - these are the typical
-   *  physical rewards familiar from other settings
+  /**
+   * Physical rewards structure
+   * This is a relatively simple component which models state and
+   * action rewards that agents receive - these are the typical
+   * physical rewards familiar from other settings
    */
   let physicalRewardStructure = function() {
 
-    let investorHorizon = (isDefined(horizon)) ? horizon.investor : undefined
-    let investeeHorizon = (isDefined(horizon)) ? horizon.investee : undefined
-    /** State rewards
-     *
-     * @param state
-     * @returns {{investor: array[reward], investee: array[reward]}}
+    let investorHorizon = horizon && horizon.investor
+    let investeeHorizon = horizon && horizon.investee
+
+    /**
+     * State rewards.
+     * @param {{turn: string, investments: number[], returns" number[]}} state
+     * @returns {number[][]}
      */
     let stateRewards = function(state) {
       let endowments = endowment(state)
       let investor =
-        (isDefined(investorHorizon) && state.returns.length >= investorHorizon) ?
+        investorHorizon && state.returns.length >= investorHorizon ?
           0 : endowments.investor
       let investee =
-        (isDefined(investeeHorizon) && state.returns.length >= investeeHorizon) ?
+        investeeHorizon && state.returns.length >= investeeHorizon ?
           0 : endowments.investee
       return [
         [investor],
@@ -196,11 +210,11 @@ let makeTrustCSMG = function(gameSpecificParams) {
       ]
     }
 
-    /** Action rewards
-     *
-     * @param state
-     * @param action
-     * @returns {{investor: array[number], investee: array[number]}}
+    /**
+     * Action rewards.
+     * @param {{turn: string, investments: number[], returns" number[]}} state
+     * @param {number} action
+     * @returns {number[][]}
      */
     let actionRewards = function(state, action) {
       let transfers = transfer(state, action)
@@ -219,11 +233,11 @@ let makeTrustCSMG = function(gameSpecificParams) {
     return {
       actionRewards,
       stateRewards,
-      quantity: 1
     }
   }()
 
-  /** Mental state dynamics model
+  /**
+   * Mental state dynamics model
    *  It consists of two components:
    *  (i) Heuristics agents use to estimate mental state of their opponents.
    *    This should be specified as an array of update functions, one for each
@@ -239,18 +253,18 @@ let makeTrustCSMG = function(gameSpecificParams) {
     let getPreviousState = API.getPreviousState
     let conman = isDefined(horizon) && isDefined(horizon.investee)
 
-    /** updateTrustEstimation
-     * captures the dynamics of how agent A estimates changes of their
+    /**
+     * Captures the dynamics of how agent A estimates changes of their
      * opponent's (agent B's) trust upon A taking an action.
      * Eg, when alice makes her investment, bob's trust will change, but
      *
      *
-     * @param trust {Double}  previous value of trust
-     * @param estimatingAgentID {Int}
+     * @param {number} trust previous value of trust
+     * @param {number} estimatingAgentID
      *   identifies the agent who estimates trust value
-     * @param estimatedAgentID {Int}
+     * @param {number} estimatedAgentID
      *   identifies the agent whose trust is being estimated
-     * @param state {Object}
+     * @param {{turn: string, investments: number[], returns" number[]}} state
      *
      * The idea behind the trust update is that trust increases
      * faster (in response to trustworthy actions) when it's low and
@@ -386,14 +400,6 @@ let makeTrustCSMG = function(gameSpecificParams) {
         let sigma = 1 + 2 / Math.PI * Math.atan(investment-1)
         let score = Math.log(skewedGaussianDensity(mu, sigma, -2 + 4*trust, action))
         return score
-        // return score1(mu, sigma, -0.5 + trust, action)
-        // let mu = trust * 2 * investment
-        // let mu = Math.pow(trust, 0.6) * (investment + 1)
-        // let sigmaNeg = Math.pow(1 - trust, 0.7)
-        // let sigmaPos = investment * Math.pow(trust, 0.3)
-        // let sigma = action > mu ? sigmaPos : sigmaNeg
-        // let score = Gaussian({mu, sigma}).score(action)
-        // return score
       }
 
       return {

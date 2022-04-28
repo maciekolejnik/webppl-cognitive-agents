@@ -1,0 +1,23 @@
+/**
+ * @fileoverview Tests that the logging mechanism operates as expected
+ *
+ * To run:
+ * > webppl <this-file> --require <webppl-cognitive-agents package> -- --log <l>
+ * @example
+ * > webppl test/logging.wppl --require .
+ *
+ * @requires assert.wppl
+ */
+
+let main = function() {
+  display('\n\nTesting logging now...')
+  critical('This is a critical log.')
+  explain('This is an explain log.')
+  debug('This is a debug log.')
+  globalStore.loggingLevel = 5
+  info('This is an info log.')
+  aux('This is an aux log.')
+  return ''
+}
+
+main()

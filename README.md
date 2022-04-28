@@ -2,9 +2,9 @@
 
 This is a WebPPL library for modelling *cognitive agents* 
 interacting in an environment we call *cognitive stochastic 
-multiplayer game*. The library currently supports *simulating* 
-execution of cognitive models as well as *inferring* characteristics
-of cognitive agents from data. 
+multiplayer game*. The library currently supports (i) *construction* of 
+cognitive models, (ii) *simulating* their execution, (iii) as well as 
+*inferring* characteristics of cognitive agents from data. 
 
 ## Background (theoretical)
 Our framework is based on standard constructs
@@ -18,10 +18,12 @@ like sustaining interpersonal relations, conforming to social norms,
 maximising happiness and avoiding negative emotions. These *mental 
 attitudes* pose various modelling challenges; it's not clear how to
 quantify them, and it's not realistic to treat their values as 
-public information. The way we handle it is by defining a set of 
+public information. 
+
+The way we handle it is by defining a set of 
 *mental attitudes* that give rise to *mental
-rewards*, ``collected'' by agents during execution of the game along 
-with standard, physical rewards. Each mental attitude induces a
+rewards*, which are accumulated by agents during execution of the 
+game along with standard, physical rewards. Each mental attitude induces a
 *mental state* for each agent, which specifies the value of an 
 attitude at a given time. Since agents can't directly observe 
 mental states of their opponents, they use heuristics, which we call
@@ -31,33 +33,67 @@ or someone else's (which they estimate), reflected in their utility
 function, which is a linear combination of physical and mental
 rewards. 
 
-## Overview
-The meat of the library is the ``src`` directory which contains 
-following files:
+## Code Overview
+The meat of the library is the top level of the ``src`` directory 
+which contains the following files:
 * ``cognitiveAgent.wppl`` implements the decision-making process of 
 cognitive agents
 * ``cognitiveGame.wppl`` implements the cognitive stochastic 
 multiplayer game model 
-* ``simulations.wppl`` contains scaffold code for running simulations
+* ``simulate.wppl`` contains scaffold code for running simulations
+* ``infer.wppl`` contains scaffold code for running inferences
 
 There are also several auxiliary files in the ``aux`` subdirectory:
 * ``lambdas.wppl`` contains definitions of some trivial functions,
 so they can be used as lambdas in HOFs like maps and folds (called 
 ``reduce`` here)
 * ``logging.wppl`` implements a basic logging mechanism
+* ``array.wppl`` provides a variety of utility functions that operate
+  on arrays
 * ``assert.wppl`` implements a basic assertion mechanism
-* ``auxiliary.wppl`` collects various helper functions
+* ``auxiliary.wppl`` collects various helper functions that do not fit 
+  into any category
+* ``metaParams.wppl`` provides utility functions that abstract away the
+  implementation details of meta-parameters
 * ``printing.wppl`` implements printing for various objects (needed
 because webppl doesn't print objects when used inline)
 * ``belief.wppl`` collects functions that operate on beliefs; it 
 effectively hides the complexity of different belief representations,
 providing a uniform interface
 
-Other than that, ``examples`` directory contains our case studies - 
-see below. 
-Limited unit tests are in ``test`` directory, and ``integration.wppl`` is 
-a sort of integration test. Finally, ``package.json`` is a config
-file. 
+Next, the ``templates`` directory includes templates for defining (i) an 
+instance of a cognitive stochastic game (``gameTemplate.wppl``) and (ii) a
+set of simulation scenarios (``simulationTemplate.wppl``).
+Apart from the templates, numerous examples are included in the ``examples`` 
+directory.
+
+Finally, some tests are defined in the ``test`` directory; most notably,
+``integration.wppl`` defines a set of games of increasing complexity, 
+simulates their execution and checks that the traces are as expected. 
+It is designed as a comprehensive test with high codebase coverage.
+Note that the tests are made into a node package (by including a 
+``package.json`` file) so that common code may be placed in a separate
+file (``util.wppl``) which is then used by various test files.
+
+## Installation
+To use the ``webppl-cognitive-agents`` package, a running installation of
+``webppl`` is required, which in turn requires Node.js to be present.
+
+Follow instructions from WebPPL documentation, available at 
+https://webppl.readthedocs.io/en/master/installation.html to install
+Node.js and WebPPL. 
+
+Then, ``webppl-cognitive-agents`` package is installed like any other 
+Node package:
+```
+npm install webppl-cognitive-agents
+```
+
+To verify the installation was successful, execute <br/>
+```
+webppl test/installation.wppl --require .
+```
+from the root of the installed package. 
 
 ## Usage
 A typical workflow of using the library will follow the structure
@@ -65,11 +101,15 @@ of provided examples. In particular, one must specify the mechanics
 of the modeled scenario, which takes form of a function that defines
 all the standard (and non-standard) game components. The convention
 followed throughout ``examples`` directory is that this function is
-defined in a ``<name-of-scenario>.wppl`` file. One would typically
-also have an additional file (which we tend to call 
-``simulations.wppl``) which encodes what one wants to do with the 
-model - simulations or learning from data. Note also that each of
-the examples is made into a separate webppl package (achieved by
+defined in a ``<name-of-scenario>.wppl`` file. 
+
+To do something useful with the defined model, one would typically (i) 
+define a set of scenarios (i.e., agents' parameters and initial states
+along with game parameters) and simulate their execution and/or (ii) 
+in presence of behavioural data, use that data to infer characteristics
+of the involved agents.
+
+__Note__: each example is made into a separate webppl package (achieved by
 including ``package.json`` in each example directory). That's for a
 technical reason - WebPPL doesn't seem to have a mechanism for 
 *including* files and so if we want to split the code into 
@@ -86,16 +126,16 @@ include your example.
 As mentioned above, the experiments will be either (i) simulating 
 model execution or (ii) learning agents' characteristics based on 
 data, but regardless of the type of experiment, the model itself
-must be defined in the same way. Below, we specify the exact
-requirements of how to specify the model. 
+must be defined in the same way. Below, we formally outline
+how such a model is specified.
 
-### Defining the model
+### Defining the Model
 The main thing is to define game setup, specifying the usual stuff 
 such as states, actions, 
-transition function as well as game API (described below) and other
+transition function as well as game API (described below), plus
 novel components to do with rewards. Game setup should be specified
-as a function which accepts game-specific parameters (which are
-defined by the user, usually a dictionary) as input and
+as a function which accepts an object with game-specific parameters 
+(which differ for every game) as input and
 returns an object (dictionary) containing the following fields:
 + ``actions :: State -> [Action]`` <br/>
 a function that retrieves **actions** available to an agent
@@ -112,31 +152,37 @@ library, but their implementations are game-specific, such as
     the execution of the game. Normally states encode execution
     histories, so implementation of this function is trivial
     + ``getLastAction :: State -> Action``
+    + ``endsRound :: State -> Action -> Bool`` (optional) <br/>
+    does *action* taken in a *state* end the round?; the notion of a round
+    is introduced to allow control of timeframes when discounting 
+    happens
     + ``isInitial :: State``
     + ``turn :: State -> Agent`` <br/>
     retrieves an **agent** that takes action in (owns) a given 
     *state* 
-    + ``other :: Agent -> Agent`` <br/>
-    given *agent* return the other **agent** (under assumption 
-    there are only two agents)
-    + ``stateToString :: State -> String``
-    + ``actionSimilarity :: State -> Action -> Action`` (optional)
-    used to learn from data so that computed action may be compared 
-    to observed action; score should be given as a nonpositive number,
-    with 0 being similarity of equal actions and the more dissimilar 
-    the actions are, the lower their similarity score. 
+    + ``stateToString :: State -> String`` <br/>
+    how to print states
+    + ``actionSimilarity :: State -> Action -> Number`` (optional)
+    provides a notion of similarity between actions, measured as a 
+    nonpositive distance; by default, distance is 0 for same actions and
+    -100 for different actions. In general, the lower the score, the more
+    dissimilar the actions are. A custom similarity measure may be
+    especially useful when actions are numbers. It is used for making
+    inferences about agent's characteristics when updating (discrete) belief
+    
+     
 + ``physicalRewardStructure :: Object`` <br/>
 captures action and state rewards of agents. Must contain following 
 fields:
-    + ``stateRewards :: State -> [[Int]]`` <br/>
+    + ``stateRewards :: State -> [[Number]]`` <br/>
     Given a state, returns an array (indexed by agentID) whose ith
     element is an array of rewards obtained by agent i in that state.
     The length of this array of rewards should be equal to 
     params.numberOfRewards.physical (see below). 
-    + ``actionRewards :: State -> [[Int]]`` <br/>
+    + ``actionRewards :: State -> [[Number]]`` <br/>
     As above, but returns rewards obtained from taking an action.
 + ``mentalStateDynamics :: Object`` <br/>
-captures the mental reward part of the utility function - that 
+captures the mental reward component of the utility function - that 
 involves providing estimation heuristic for each mental state
 as well as a way to compute each mental state. One must also 
 specify the mental component of each agent's utility function.
@@ -154,17 +200,11 @@ Therefore, this object must contain the following fields:
         + ``prevValue :: Value`` is the previous value (before 
         ``action`` is taken at ``state`` [see below]) of the mental
         state; usually, ``Value = Double``
-        + ``estimatorAgentID :: AgentID`` identifies an agent
+        + ``estimatingAgentID :: AgentID`` identifies an agent
         who is estimating the value of this mental state
-        + ``estimateeAgentID :: AgentID`` identifies an agent
+        + ``estimatedAgentID :: AgentID`` identifies an agent
         whose mental state is being estimated
-        + ``belief :: Belief`` is the belief of ``estimatorAgentID``;
-        it may (or may not) be used to do the estimating
-        + ``state :: State`` 
-        + ``action :: Action`` <br/>
-        mental state is being estimated upon ``action`` taken in
-        ``state``; note that it doesn't matter what state the game
-        transisioned to <br/>
+        + ``state :: State``
     Overall, each heuristic is a function that captures how 
     ``estimatorAgentID``'s estimation of ``estimateeAgentID``'s
     mental state changed from ``prevValue`` upon ``action`` taken
@@ -209,8 +249,25 @@ must contain the following basic information about the game:
     + ``numberOfRewards :: Object``, consisting of
         + ``physical :: Int``
         + ``mental :: Int``
-     
-### Running simulations
++ ``rewardUtilityFunctions :: Object`` a set of functions, one per
+  reward, that form part of the utility function, split into physical
+  and mental:
+  + ``physical :: [Function]`` ordered array of reward utility
+  functions for physical rewards
+  + ``mental :: [Function]`` ordered array or reward utility
+  function for mental rewards
++ ``heuristics :: Object`` (optional)
+An optional specification of heuristics that agents use to guess
+actions of their opponents and/or update their belief following
+opponents' actions. Contains the following fields:
+  + ``action :: Object`` (optional)
+  + ``belief :: Object`` (optional)
+which specify the action and belief heuristics, respectively.
+Both elements have the same structure, consisting of a _filter_
+function that controls when the heuristic applies and the _compute_
+function that encodes the actual heuristic. Both elements are optional.
+
+### Running Simulations
 To simulate the execution of a model, one must specify a **scenario**,
 which, besides some basic parameters, specifies the characteristics 
 and initial state of agents. In particular, each scenario is an object
@@ -261,43 +318,8 @@ agent and consists of:
             + ``discountFactor :: [Distribution]`` <br/>
             each of the above is an array of estimations of one of 
             meta-parameters of each agent (including oneself, which
-            should be ``undefined``)
+            should be ``null``)
+    
           
-Below we include some examples of possible scenarios:
-
-```yaml
-{
-    name: 'A simple scenario',
-    agents:
-    [
-      {
-        params: {
-          goalCoeffs: [1],
-          metaParams: {
-            alpha: 100,
-            discountFactor: 0.8,
-            lookAhead: 2
-          }
-        },
-        initialState: {
-          belief: [],
-          mentalEstimations: [],
-          metaParamsEstimations: {
-            alpha: [undefined],
-            lookAhead: [undefined],
-            discountFactor: [undefined]
-          }
-        }
-      }
-    ],
-    options: {
-      horizon: 9,
-      beliefRepresentation: 'discrete'
-    },
-    gameSpecificParams: {
-      stateRepresentation: 'efficient'
-    }
-}
-```
-## Testing
-Some 
+See ``test/integration.wppl`` and ``examples`` directory for 
+examples of scenarios.

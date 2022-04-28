@@ -101,7 +101,7 @@ let makeTicTacToe = function (gameParams) {
   // let beliefRepresentation = assertDefined(gameParams.beliefRepresentation,
   //   "makeGame(): gameParams.beliefRepresentation must be passed" +
   //   " but not found")
-  let stateRepresentation = assertDefined(gameParams.stateRepresentation,
+  let stateRepresentation = assertDefinedNotNull(gameParams.stateRepresentation,
     "makeGame(): gameParams.stateRepresentation must be passed" +
     " but not found")
 
@@ -147,7 +147,7 @@ let makeTicTacToe = function (gameParams) {
    * (defined as not defending against obvious winning
    *  threat or not taking an obvious winning opportunity) */
   let isBlunder = function(state, action) {
-    // explain("isBlunder(state=" + stateToString(state) + ",action=" + action + ")")
+    info("isBlunder(state=" + stateToString(state) + ",action=" + action + ")")
     let turn = turn(state) /** 'X' or 'O' */
     let winOpportunityLines = winningOpportunityLines(state, turn)
     let loseOpportunityLines = winningOpportunityLines(state, (turn+1)%2)
@@ -166,6 +166,8 @@ let makeTicTacToe = function (gameParams) {
    * as three marks arranged in a way that creates two lines that
    * are 2/3 for mark */
   let createdFork = function(state, action) {
+    info('createdFork(state=' + stateToString(state) + ', action=' +
+    action)
     let turn = turn(state)
     /** fork is created when player *turn* had no *winning opportunities*
      * before his move and had 2 after his move */
@@ -268,7 +270,8 @@ let makeTicTacToe = function (gameParams) {
     let getLastAction = function(state) {
       let fns = {
         'history': function () {
-          assert(!isInitial(state))
+          assert(!isInitial(state), 'getLastAction() called on the ' +
+              'initial state; illegal!')
           return state[0]
         },
         'efficient': function () {
@@ -339,7 +342,10 @@ let makeTicTacToe = function (gameParams) {
     /** We assume satisfaction from winning is high
      * only if the win was not given by the opponent... */
     let estimateSatisfaction =
-      function(prevSatisfaction, estimatingAgentID, estimatedAgentID, state, observation) {
+      function(prevSatisfaction, estimatingAgentID, estimatedAgentID, state) {
+        info('estimateSatisfaction(): prev=' + prevSatisfaction +
+            'estimating=' + estimatingAgentID + ', estimated=' +
+            estimatedAgentID + ', at state ' + stateToString(state))
         let prevState = getPreviousState(state)
         let lastAction = getLastAction(state)
         let turn = turn(prevState)

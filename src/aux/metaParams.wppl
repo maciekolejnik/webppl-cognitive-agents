@@ -1,33 +1,49 @@
-/** dependencies: none
+/**
+ * @fileoverview Abstracts away the details of meta-parameters by
+ * providing a clean interface which can be easily extended should
+ * more meta-parameters be supported in the future.
  *
- * metaParams.wppl
- *
- * Agent decision-making in our framework is defined in terms of
+ * Recall that agent decision-making in our framework is defined in terms of
  * meta-parameters. Currently, there are three: rationality (alpha),
  * lookahead and discount factor. However, there might be more in
  * the future, and we would also like to support user-defined meta
- * parameters. Therefore, we provide function that operate on all
+ * parameters. Therefore, we provide functions that operate on all
  * meta-parameters, so our code doesn't have to change when new
  * meta-parameters are defined (only the code below has to change)
- *
  */
 
+/**
+ * Samples meta parameters of all agents according to one agent's estimations.
+ * @param {{alpha: object, lookAhead: object, discountFactor: object}} metaParamsEstimations
+ * @returns {{lookAhead: number[], alpha: number[], discountFactor: number[]}}
+ */
 let sampleMetaParamsEstimations = function (metaParamsEstimations) {
   info("sampleMetaParamsEstimations(" + metaParamsEstimations + ")")
-  let sampleIfDefined = function(dist) {
-    if (dist === undefined) return undefined
+  let sampleIfNotNull = function(dist) {
+    assertDefined(dist, 'bad game specification: metaParamsEstimation' +
+        ' found undefined')
+    if (dist === null) return null
     assertHasType(dist, DIST_TYPE,
       "bad game specification: distribution expected in " +
       "metaParamsEstimations, found: " + toString(dist))
     return sample(dist)
   }
   return {
-    alpha: map(sampleIfDefined, metaParamsEstimations.alpha),
-    lookAhead: map(sampleIfDefined, metaParamsEstimations.lookAhead),
-    discountFactor: map(sampleIfDefined, metaParamsEstimations.discountFactor)
+    alpha: map(sampleIfNotNull, metaParamsEstimations.alpha),
+    lookAhead: map(sampleIfNotNull, metaParamsEstimations.lookAhead),
+    discountFactor: map(sampleIfNotNull, metaParamsEstimations.discountFactor)
   }
 }
 
+/**
+ * Merges an object representing one agent's meta params into an object
+ * representing other agents' meta params to produce an object containing
+ * meta params of all agents
+ * @param {alpha: number[], lookAhead: number[], discountFactor: number[]} othersMetaParams
+ * @param {alpha: number, lookAhead: number, discountFactor: number} selfMetaParams
+ * @param {number} selfId
+ * @returns {{lookAhead: number[], alpha: number[], discountFactor: number[]}}
+ */
 let mergeMetaParams = function(othersMetaParams, selfMetaParams, selfId) {
   info("mergeMetaParams(" + othersMetaParams + ", " + selfMetaParams + ")")
   return {

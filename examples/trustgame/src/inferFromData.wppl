@@ -529,7 +529,7 @@ let posteriorAndGameState = function(players, data) {
     let prior = priorAndState[0]
     let state = priorAndState[1]
 
-    display(stringInABox("Process round " + roundData[2]))
+    display(emphasiseString("Process round " + roundData[2]))
     display("investment: " + investedAmount + ", returned: " + returnedAmount + " at state " + stateToString(state))
 
     let priorFullInvestorBeliefBelief = prior.investor.beliefBelief

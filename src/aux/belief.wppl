@@ -1,61 +1,150 @@
-/** This file contains all the 'auxiliary' belief operations.
- * The main belief functions, like getting a belief at a state
- * or updating belief must be defined separately as they are
- * game-dependent.
+/**
+ * @fileoverview This file groups together non-game-specific belief operations
+ * and abstracts away different belief representations by providing uniform API.
  *
- * The main reason for grouping belief operations together in
- * a separate file is to abstract away from belief representation.
- * To achieve that, an 'API' is given below (made up of the public
- * functions below), which defines what types of operations each
- * representation should support and those operations can then be
- * invoked by clients without knowing the representation used.
- * When adding a new representation, each function must be extended
- * to support the added representation.
+ * Abstractly, belief of A over B is a probability distribution over the space
+ * of possible goal coefficient vectors of B, representing A's understanding of
+ * B's goal coefficients.
+ * Concretely, this probability distribution is represented in one of two ways:
+ * 1. Discretised, i.e., a categorical distribution, typically with 5-20 values
+ * in its support (e.g., multiples of 0.1 between 0 and 1). Under that
+ * representation, belief update is computationally expensive.
+ * 2. Approximated, i.e., a Dirichlet distribution, which yields an efficient
+ * representation as a vector (alpha) of parameters, whose length is equal to
+ * the number of goal coefficients. This representation trades off accuracy
+ * (belief update is defined according to a heuristic) for efficiency.
  *
- * Each belief object has the form
+ * Hence, belief of A over B is represented by an object of the form
  * {
- *   value: <value>,
- *   representation: 'dirichlet'/'discrete' etc
+ *   value: <categorical dist object/Dirichlet vector alpha>,
+ *   representation: 'discrete'/'dirichlet'
  * }
- * so the representation is conveniently passed around.
- * It is important to note however that two different types of belief
- * object are being passed around:
- * - fullBelief captures entire belief of an agent, consisting of
- * individual beliefs over every opponent => value (from above) is an
- * array of beliefs (where each belief is a distribution [in case of
- * discrete rep] or an array [in case of dirichlet] or maybe something
- * else [if another representation is added])
- * - individualBelief captures one agent's belief over another agent
- * => value (from above) is just a belief, whether a distribution or
- * an array
+ * We refer to that belief as __individual belief__, as it only concerns one
+ * other agent (B).
+ * Another type of belief, __full belief__, groups together individual beliefs
+ * of an agent (A) over all other agents, so the value is an array:
+ *
+ * The belief API consists of the following operations:
+ * 1. For individual beliefs:
+ *   a. sampleBelief
+ *      retrieves a vector of goal coefficients
+ *   b. goalCoeffExpectation
+ *      computes expected value of a specified (via index) goal coefficient
+ *   c. goalCoeffsExpectation
+ *      computes expected value of goal coefficients vector
+ *   d. individualBeliefToString
+ *      retrieves textual representation
+ *
+ * 2. For full beliefs:
+ *   a. validateBelief
+ *      checks belief is well-constructed; essentially validation of user input
+ *   b. retrieveBeliefOver
+ *      gets individual belief over particular agent from full belief
+ *   c. beliefToString
+ *      retrieves textual representation
+ *
+ * Additionally, this file contains functions to do with conditional
+ * computations of utility. Recall that, to update their belief, players
+ * compute hypothetical actions of their opponent assuming their set
+ * characteristics. The form that this condition takes depends on the
+ * belief representation used:
+ * - under discrete representation, the condition is simply a vector of goal
+ *   coefficients
+ * - under dirichlet representation, the condition is an index, identifying
+ *   one mental motivation which an agent is assumed to conform to under that
+ *   condition
+ * Similarly as beliefs, conditions are represented as objects that record
+ * the representation used, in fact it's the same object as belief:
+ * { value, representation }, except that value is not a condition: either
+ * a vector of goal coefficients or an index.
  */
 
-
-/** PRIVATE */
-let validateBelief = function(fullBelief, thisAgentID, numberOfAgents) {
-  aux('validateBelief(' + fullBelief + ";" + thisAgentID + ";"
-    + numberOfAgents + ")")
-  map(function(agentID) {
-    let indBelief = fullBelief[agentID]
-    let intro = 'validateBelief() with ' + toString(fullBelief) +
-      ' for agent ' + thisAgentID
-    if (agentID === thisAgentID) {
-      assertUndefined(indBelief,intro + ': belief over oneself should ' +
-        'be undefined, but found: ' + indBelief)
-    } else {
-      assertDefined(indBelief, intro + ': belief over agent '
-        + agentID + ' should be defined, but found undefined')
+// Individual belief API
+/**
+ * Samples a vector of goal coefficients of some agent
+ * @param {object} individualBelief an object as detailed above
+ * @returns {number[]}
+ */
+let sampleBelief = function(individualBelief) {
+  info('sampleBelief(' + toString(individualBelief) + ')')
+  let appropriateFn = {
+    'discrete' : function(beliefVal) {
+      return sample(beliefVal)
+    },
+    'dirichlet': function(beliefVal) {
+      /** this should be sample(Dirichlet....) but that doesn't work (seems to
+       *  be a webppl issue [@todo potentially investigate]) */
+      return Dirichlet({alpha: Vector(beliefVal)}).sample()
     }
-  }, rangeArray(0, numberOfAgents-1))
+  }[individualBelief.representation]
+  const result = appropriateFn(individualBelief.value)
+  info('sampleBelief(): computed result: ' + result + '; returning')
+  return result
 }
 
+/**
+ * Computes expected value of a particular goal coefficient given belief
+ * @param {object} individualBelief
+ * @param {number} index identifies the goal coefficient
+ * @returns {number} the expected value of the goal coefficient
+ */
+let goalCoeffExpectation = function(individualBelief, index) {
+  info('goalCoeffExpectation(): belief=' + toString(individualBelief) +
+      ', index=' + index)
+  let appropriateFn = {
+    'discrete': function(beliefVal) {
+      assertHasType(beliefVal, DIST_TYPE,
+          'belief values under discrete representation must be ' +
+          'distributions; found: ' + toString(beliefVal) + '. Check the ' +
+          'initial states of agents.')
+      return expectation(marginalize(beliefVal, '' + index))
+    },
+    'dirichlet': function(beliefVal) {
+      assertIsArray(beliefVal, NUMBER_TYPE, -1,
+          'belief values under dirichlet representation must be' +
+          ' arrays; found: ' + toString(beliefVal) + '. Check the ' +
+          'initial states of agents and check whether you might be passing ' +
+          'full, rather than individual, belief to goalCoeffExpectation()')
+      return beliefVal[index] / sum(beliefVal)
+    }
+  }[individualBelief.representation]
+  let result = appropriateFn(individualBelief.value)
+  info('goalCoeffExpectation(): computed ' + result + ', returning...')
+  return result
+}
+
+/**
+ * Computes expected value of the goal coefficient vector based on belief.
+ * @param {object} individualBelief
+ * @param {number} numberOfGoalCoeffs
+ * @returns {number[]} a vector of expected values of goal coeffs
+ */
+let goalCoeffsExpectation = function (individualBelief, numberOfGoalCoeffs) {
+  info('goalCoeffsExpectation(): belief= ' + toString(individualBelief) +
+      ', numberOfGoalCoeffs: ' + numberOfGoalCoeffs)
+  let result = map(function (index) {
+        return goalCoeffExpectation(individualBelief, index)
+      },
+      rangeArray(0, numberOfGoalCoeffs - 1))
+  info('goalCoeffsExpectation(): computed ' + toString(result))
+  return result
+}
+
+/**
+ * Converts individual belief to a string, which is straightforward for
+ * dirichlet representation as it's just a vector, but for discrete, it
+ * computes expectations rather than trying to display the full distribution.
+ * @param {object} individualBelief
+ * @param {number} numberOfGoalCoeffs
+ * @returns {string}
+ */
 let individualBeliefToString = function(individualBelief, numberOfGoalCoeffs) {
-  aux("individualBeliefToString(" + individualBelief + ","
-    + numberOfGoalCoeffs + ")")
-  assertDefined(individualBelief,
-    "individualBeliefToString(): missing individualBelief")
-  assertDefined(numberOfGoalCoeffs,
-    "individualBeliefToString(): missing numberOfGoalCoeffs param")
+  aux('individualBeliefToString(' + individualBelief + ','
+      + numberOfGoalCoeffs + ')')
+  assertDefinedNotNull(individualBelief,
+      'individualBeliefToString(): missing individualBelief')
+  assertDefinedNotNull(numberOfGoalCoeffs,
+      'individualBeliefToString(): missing numberOfGoalCoeffs param')
   let appropriateFn = {
     'discrete': function() {
       let exps = goalCoeffsExpectation(individualBelief, numberOfGoalCoeffs)
@@ -69,130 +158,98 @@ let individualBeliefToString = function(individualBelief, numberOfGoalCoeffs) {
   return appropriateFn()
 }
 
-/** END PRIVATE */
+// Full belief API
 
-/** belief is a dict { repr, value }, where value is an array
- * indexed by agents' ids. we re often interested in belief over
- * a particular agent which is what this function retrieves
+/**
+ * Validates that a full belief object is well-constructed, i.e.,
+ * @param fullBelief
+ * @param thisAgentID
+ * @param numberOfAgents
+ */
+let validateBelief = function(fullBelief, thisAgentID, numberOfAgents) {
+  aux('validateBelief(' + fullBelief + ';' + thisAgentID + ';'
+    + numberOfAgents + ')')
+  assertIsArray(fullBelief, ANY_TYPE, numberOfAgents,
+      'validateBelief(): fullBelief must be an array of length ' +
+      numberOfAgents + ', but found: ' + toString(fullBelief))
+  map(function(agentID) {
+    let indBelief = fullBelief[agentID]
+    let intro = 'validateBelief() with ' + toString(fullBelief) +
+      ' for agent ' + thisAgentID
+    if (agentID === thisAgentID) {
+      assertIsNull(indBelief,intro + ': belief over oneself should ' +
+        'be null, but found: ' + indBelief)
+    } else {
+      assertDefinedNotNull(indBelief, intro + ': belief over agent '
+        + agentID + ' should be defined, but found undefined')
+    }
+  }, rangeArray(0, numberOfAgents-1))
+}
+
+/**
+ * Converts full belief into individual belief over some agent.
+ * @param {number} agentID
+ * @param {object} fullBelief
+ * @returns {object} individual belief over agentID
  */
 let retrieveBeliefOver = function(agentID, fullBelief) {
-  aux("retrieveBeliefOver(): agentID=" + agentID + ", belief=" + toString(fullBelief))
+  info('retrieveBeliefOver(): agentID=' + agentID + ', belief=' + toString(fullBelief))
   assertIsArray(fullBelief.value, ANY_TYPE, -1,
-    "belief.value should be an array of ")
-  assert(agentID < fullBelief.value.length)
+    'belief.value should be an array of ')
+  assert(agentID < fullBelief.value.length,
+      'retrieveBeliefOver(): agentID must be a valid index into the ' +
+      'belief array, but found: ' + agentID + ', while belief has length ' +
+      fullBelief.value.length)
   let individualBelief = {
     representation: fullBelief.representation,
     value: fullBelief.value[agentID]
   }
+  info('retreieveBeliefOver(): returning')
   return individualBelief
 }
 
-/** this expects FULL belief where value is array of distributions */
+/**
+ * Converts full belief to a string.
+ * @param {object} fullBelief
+ * @param {number} ofAgentID
+ * @param {number} numberOfGoalCoeffsArr
+ * @returns {string}
+ */
 let beliefToString = function (fullBelief, ofAgentID, numberOfGoalCoeffsArr) {
-  aux("beliefToString(): fullBelief=" + toString(fullBelief) +
-    ", ofAgentID=" + ofAgentID + ", numberOfGoalCoeffsArr=" + numberOfGoalCoeffsArr)
+  aux('beliefToString(): fullBelief=' + toString(fullBelief) +
+    ', ofAgentID=' + ofAgentID + ', numberOfGoalCoeffsArr=' + numberOfGoalCoeffsArr)
   let initialAcc = {
-    'discrete': "Belief as expectations of each goalcoeff:",
-    'dirichlet': "Belief as params to dirichlet dist"
+    'discrete': 'Belief as expectations of each goalcoeff:',
+    'dirichlet': 'Belief as params to dirichlet dist'
   }[fullBelief.representation]
   let agentsNo = numberOfGoalCoeffsArr.length
   let agentsRange = rangeArray(0, agentsNo-1)
   let result = reduceL(function(acc, agentID) {
     if (agentID === ofAgentID) return acc
     let individualBelief = retrieveBeliefOver(agentID, fullBelief)
-    let line = "\nOver agent " + agentID + ": " +
+    let line = '\nOver agent ' + agentID + ': ' +
       individualBeliefToString(individualBelief,
         numberOfGoalCoeffsArr[agentID])
     return acc + line
   }, initialAcc, agentsRange)
-  aux("beliefToString(): returning")
+  aux('beliefToString(): returning')
   return result
 }
 
-/** individual belief */
-let sampleBelief = function(individualBelief) {
-  let appropriateFn = {
-    'discrete' : function(beliefVal) {
-      return sample(beliefVal)
-    },
-    'dirichlet': function(beliefVal) {
-      /** this should not be called like this but for some reason,
-       * calling sample(Dirichlet....) doesn't work */
-      return Dirichlet({alpha: Vector(beliefVal)}).sample()
-    }
-  }[individualBelief.representation]
-  return appropriateFn(individualBelief.value)
-}
-
-let goalCoeffExpectation = function(individualBelief, index) {
-  info("goalCoeffExpectation(): belief=" + toString(individualBelief) +
-     ", index=" + index)
-  let appropriateFn = {
-    'discrete': function(beliefVal) {
-      assertHasType(beliefVal, DIST_TYPE,
-        "belief values under discrete representation must be " +
-        "distributions; found: " + toString(beliefVal) + ". Check the " +
-        "initial states of agents.")
-      return expectation(marginalize(beliefVal, '' + index))
-    },
-    'dirichlet': function(beliefVal) {
-      assertIsArray(beliefVal, NUMBER_TYPE, -1,
-        "belief values under dirichlet representation must be" +
-        " arrays; found: " + toString(beliefVal) + ". Check the " +
-        "initial states of agents and check whether you might be passing " +
-        "full, rather than individual, belief to goalCoeffExpectation()")
-      return beliefVal[index] / sum(beliefVal)
-    }
-  }[individualBelief.representation]
-  let result = appropriateFn(individualBelief.value)
-  info("goalCoeffExpectation(): computed " + result + ", returning...")
-  return result
-}
-
-/** Takes individual belief as argument i.e. value is belief
- * over some agent.
- * returns array of expectations of goal coefficients */
-let goalCoeffsExpectation = function (individualBelief, numberOfGoalCoeffs) {
-  info("goalCoeffsExpectation(): belief= " + toString(individualBelief) +
-    ", numberOfGoalCoeffs: " + numberOfGoalCoeffs)
-  let result = map(function (index) {
-      return goalCoeffExpectation(individualBelief, index)
-    },
-    rangeArray(0, numberOfGoalCoeffs - 1))
-  info("goalCoeffsExpectation(): computed " + toString(result))
-  return result
-}
-
-/** To update a belief, a condition must be passed.
- * Depending on representation used, the condition takes
- * a different form.
- */
-let condToString = function (condition) {
-  if (condition === undefined) return "undefined"
-  let appropriateFn = {
-    'discrete': function(goalCoeffs) {
-      return "{ coeffs: " + toString(goalCoeffs) + " }"
-    },
-    'dirichlet': function(index) {
-      return "{ index: " + index + " }"
-    }
-  }[condition.representation]
-  return appropriateFn(condition.value)
-}
-
-/** Computes utility given condition cond. Used for belief update
- *
- * @param rewards {Object}   consist of mental (optional) and physical fields
- *                           ({mental:<>, physical:<>})
- * @param cond {Object}      object that specifies what representation is used
- *                           and what is the value ({representationL <>, value: <>}
- * @param utilityFns {Object} consists of physical utility function and mental
- *                           utility function ({physical: <>, mental: <>})
- * @returns {Number}         Utility
+// Conditions
+/**
+ * Given physical and mental rewards, computes utility under a condition.
+ * Depending on representation, this boils down either to selecting an
+ * appropriate reward or computing the value of utility function given
+ * goal coefficients
+ * @param {{physical: number[], mental: ?number[]}}          rewards
+ * @param {{value: number[]|number, representation: string}} cond
+ * @param {{physical: function, mental: function}}           utilityFns
+ * @returns {number}         computed utility
  */
 let conditionalUtility = function(rewards, cond, utilityFns) {
-  info("conditionalUtility(rewards: " + toString(rewards)
-    + ", " + condToString(cond) + ")")
+  info('conditionalUtility(rewards: ' + toString(rewards)
+    + ', ' + condToString(cond) + ')')
   let physicalUtilityFn = utilityFns.physical
   let mentalUtilityFn = utilityFns.mental
   let physicalNo = rewards.physical.length
@@ -210,13 +267,19 @@ let conditionalUtility = function(rewards, cond, utilityFns) {
       }
       let goalCoeffs = repeat(arrayConcat(rewards.mental).length, getConstantFn(1))
       return mentalUtilityFn(goalCoeffs, rewards.mental, index - physicalNo)
-      // return rewards[index]
     }
   }[cond.representation]
-  info("conditionalUtility(): returning")
+  info('conditionalUtility(): returning')
   return appropriateFn(cond.value)
 }
 
+/**
+ * Computes the physical component of agent's utility, under condition.
+ * @param {number[]} rewards
+ * @param {{representation: string, value: number|number[]}} cond
+ * @param {{physical: function}} utilityFns
+ * @returns {*}
+ */
 let physicalCondUtilityFn = function(rewards, cond, utilityFns) {
   let physicalUtilityFn = utilityFns.physical
   let appropriateFn = {
@@ -230,6 +293,25 @@ let physicalCondUtilityFn = function(rewards, cond, utilityFns) {
       return physicalUtilityFn(goalCoeffs, rewards, index)
     }
   }[cond.representation]
-  info("physicalCondUtilityFn(): returning")
+  info('physicalCondUtilityFn(): returning')
   return appropriateFn(cond.value)
+}
+
+/**
+ * Gives a textual representation of a condition
+ * @param {object} condition
+ * @returns {string}
+ */
+let condToString = function (condition) {
+  // @todo should this check be here?
+  if (condition === undefined) return 'undefined'
+  let appropriateFn = {
+    'discrete': function(goalCoeffs) {
+      return '{ coeffs: ' + toString(goalCoeffs) + ' }'
+    },
+    'dirichlet': function(index) {
+      return '{ index: ' + index + ' }'
+    }
+  }[condition.representation]
+  return appropriateFn(condition.value)
 }

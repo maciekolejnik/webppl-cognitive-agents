@@ -109,11 +109,11 @@ let processData = function(data, csmg, prior) {
   explain("gasp score: uniform over " + toString(gaspScoreSupport))
   explain("tipping norm: uniform over " + toString(tippingNormSupport))
   info("processData()")
-  assertDefined(data, "processData(): data undefined")
-  assertDefined(csmg, "processData(): csmg undefined")
-  assertDefined(prior, "processData(): prior undefined")
-  assertDefined(prior.players, "processData(): prior.players undefined")
-  assertDefined(prior.tippingNorm, "processData(): prior.tippingNorm undefined")
+  assertDefinedNotNull(data, "processData(): data undefined")
+  assertDefinedNotNull(csmg, "processData(): csmg undefined")
+  assertDefinedNotNull(prior, "processData(): prior undefined")
+  assertDefinedNotNull(prior.players, "processData(): prior.players undefined")
+  assertDefinedNotNull(prior.tippingNorm, "processData(): prior.tippingNorm undefined")
   let turn = csmg.API.turn
   let actionSimilarity = csmg.API.actionSimilarity
   let stateToString = csmg.API.stateToString
@@ -131,12 +131,12 @@ let processData = function(data, csmg, prior) {
    */
   let processOnePlay = function(prior, play) {
     info("processOnePlay(): play=" + toString(play))
-    assertDefined(prior, "processOnePlay(): prior undefined")
-    assertDefined(prior.players,
+    assertDefinedNotNull(prior, "processOnePlay(): prior undefined")
+    assertDefinedNotNull(prior.players,
       "processOnePlay(): prior.players undefined")
-    assertDefined(prior.tippingNorm,
+    assertDefinedNotNull(prior.tippingNorm,
       "processOnePlay(): prior.tippingNorm undefined")
-    assertDefined(play, "processOnePlay(): play undefined")
+    assertDefinedNotNull(play, "processOnePlay(): play undefined")
     let agentIDs = play.agents
     debug("Processing a play involving agents: "
       + arrayToString(agentIDs))
@@ -167,12 +167,12 @@ let processData = function(data, csmg, prior) {
     /** roundData = { states: <>, actions: <>} */
     let processRound = function(prior, roundData) {
       info("processRound(): roundData=" + toString(roundData))
-      assertDefined(prior, "processRound(): prior undefined")
-      assertDefined(roundData, "processRound(): actions undefined")
+      assertDefinedNotNull(prior, "processRound(): prior undefined")
+      assertDefinedNotNull(roundData, "processRound(): actions undefined")
 
-      let states = assertDefined(roundData.states,
+      let states = assertDefinedNotNull(roundData.states,
         "processRound(): states undefined")
-      let actions = assertDefined(roundData.actions,
+      let actions = assertDefinedNotNull(roundData.actions,
         "processRound(): actions undefined")
       assert(states.length === actions.length + 1,
         "processRound(): there should be one more state than" +
@@ -187,12 +187,12 @@ let processData = function(data, csmg, prior) {
         arrayToString(states.slice(0,-1)))
 
       let processAction = function(prior, stateAction) {
-        assertDefined(prior, "processAction(): prior undefined")
-        assertDefined(stateAction, "processAction(): stateAction undefined")
+        assertDefinedNotNull(prior, "processAction(): prior undefined")
+        assertDefinedNotNull(stateAction, "processAction(): stateAction undefined")
         info("processAction(): stateAction=" + toString(stateAction))
-        let state = assertDefined(stateAction.state,
+        let state = assertDefinedNotNull(stateAction.state,
           "processAction(): state undefined")
-        let observedAction = assertDefined(stateAction.action,
+        let observedAction = assertDefinedNotNull(stateAction.action,
           "processAction(): action undefined")
         let turn = turn(state)
         let actingAgentID = agentIDs[turn]

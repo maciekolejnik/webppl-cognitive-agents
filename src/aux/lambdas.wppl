@@ -1,56 +1,57 @@
-/** dependencies: none */
+/**
+ * @fileoverview Provides a bunch of trivial one-liner functions
+ * that are commonly used in maps, folds etc
+ */
 
-/** FEW TRIVIAL FUNCTIONS USEFUL FOR MAPS ETC */
-let multiply = function(a,b) {
-  return a * b
-}
+let multiply = function(a,b) { a * b }
 
-let apply0 = function(f) {
-  return f()
-}
+let apply0 = function(f) { return f() }
 
-let apply1 = function(f, x) {
-  return f(x)
-}
+let apply1 = function(f, x) { return f(x) }
 
-let apply2 = function(f, x, y) {
-  return f(x, y)
-}
+let apply2 = function(f, x, y) { return f(x, y) }
 
-let apply3 = function(f, x, y, z) {
-  return f(x, y, z)
-}
+let apply3 = function(f, x, y, z) { return f(x, y, z) }
 
-let apply4 = function(f, x, y, z, a) {
-  return f(x, y, z, a)
-}
+let apply4 = function(f, x, y, z, a) { return f(x, y, z, a) }
 
-let add = function(a,b) {
-  return a + b
-}
+let apply5 = function(f, x, y, z, a, b) { return f(x, y, z, a, b) }
 
-let identity = function(x) {
-  return x
-}
+let apply6 = function(f, x, y, z, a, b, c) { return f(x, y, z, a, b, c) }
+
+let add = function(a,b) { a + b }
+
+let identity = function(x) { x }
 
 let getConstantFn = function(val) {
-  return function(x) { return val }
+  return function(x) { val }
 }
 
 let isDefined = function(x) {
   return x !== undefined
 }
 
+let isDefinedNotNull = function(x) {
+  return x !== undefined && x !== null
+}
+
 let isUndefined = function(x) {
   return x === undefined
+}
+
+let isNull = function(x) {
+  return x === null
 }
 
 let getUndefined = function() {
   return undefined
 }
 
-/** following two lambdas retrieve first/second element of a pair
- * where the pair is represented as two element array */
+let getNull = function() {
+  return null
+}
+
+/** Retrieving components of pairs (represented as two-element arrays) */
 let fst = function(arr) {
   return arr[0]
 }
